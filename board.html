@@ -1,0 +1,1205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Whiteboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+/* The To Do app's macOS Tahoe look (tahoe-design skill): blue wave wallpaper, the board on one glass sheet,
+   the tools as Control Center modules. Tokens first, then wallpaper, sheet, Control Center, layouts, fallbacks. */
+/* Tahoe design tokens, taken from the shipped To Do app (4 Nov 2026). Light first, dark below.
+   The --c-* list colours are that app's: swap them for your own sections. Every text colour here passes
+   4.5:1 on its glass; check again if you change a background. */
+
+:root {
+  color-scheme: light dark;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-snap: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* text over glass */
+  --text-1: rgba(0, 0, 0, .85);
+  --text-2: rgba(0, 0, 0, .66);        /* 4.5:1+ on the glass over the blue wave */
+  --text-3: rgba(0, 0, 0, .30);
+  --sep: rgba(60, 60, 67, .16);
+  --hover: rgba(0, 0, 0, .045);
+  --sel: rgba(0, 0, 0, .075);
+
+  --accent: #007aff;
+  --red: #ff3b30;
+  --orange: #ff9500;
+  /* small coloured text on glass: the same hues, deepened (light) or lifted (dark) to 4.5:1 */
+  --red-text: color-mix(in srgb, var(--red) 52%, #000);   /* 4.5:1+ on the glass, like --dt-red */
+  --accent-text: color-mix(in srgb, var(--accent) 78%, #000);
+
+  /* list + view colours */
+  --c-all: #6e6e73;
+  --c-today: #007aff;
+  --c-upcoming: #ff3b30;
+  --c-done: #8e8e93;
+  --c-uni: #5856d6;
+  --c-personal: #ff9500;
+  --c-projects: #30b0c7;
+  --c-societies: #ff2d55;
+  --c-shopping: #34c759;
+
+  /* wallpaper */
+  --wp-base: #9fb4d0;
+  --wp-sky-1: #7f9cc3;
+  --wp-sky-2: #b4c2d6;
+  --wp-sky-3: #eed8b4;
+  --wp-sky-4: #d9dbe2;
+  --wp-fold: #3577de;
+  --wp-fold-hi: #8fb9ea;
+  --wp-lip-1: #e3f1f7;
+  --wp-lip-2: #8fc3ec;
+  --wp-body-1: #2d6fe0;
+  --wp-body-2: #1a4fc6;
+  --wp-body-3: #3b7fe2;
+  --wp-core: #0f3db4;
+  --wp-glow: #6aa6ec;
+  --wp-haze: #d3deec;
+  --wp-crest: #ffffff;
+  --wp-streak: #b6def5;
+
+  /* glass: the task sheet */
+  --sheet-bg: rgba(232, 238, 249, .56);
+  --sheet-side: rgba(250, 251, 253, .62);
+  --sheet-shadow: 0 24px 60px rgba(12, 36, 92, .22), 0 2px 10px rgba(12, 36, 92, .10);
+  --rim-a: rgba(255, 255, 255, .90);
+  --rim-b: rgba(255, 255, 255, .28);
+  --field-bg: rgba(255, 255, 255, .78);
+  --round-bg: rgba(255, 255, 255, .55);
+  --tick-ring: rgba(0, 0, 0, .45);       /* 3:1 against the glass */
+  --badge-ring: rgba(244, 247, 252, .95);
+
+  /* tiles (Edit Controls) */
+  /* the Details tiles' deep blue, so white titles and the pale subtitles keep 4.5:1 over the light glass */
+  --tile-bg: linear-gradient(160deg, rgba(0, 62, 170, .74), rgba(0, 54, 156, .78));
+  --tile-text: #fff;
+  --tile-sub: #e0edff;
+  --tile-warn: #ffe6e3;
+  --tile-tick: rgba(255, 255, 255, .20);
+
+  /* Control Center */
+  --cc-bg: linear-gradient(150deg, rgba(0, 46, 150, .40), rgba(0, 40, 140, .46) 55%, rgba(0, 46, 150, .42));   /* deep blue glass: white text 4.5:1+ over the bright wave */
+  --cc-text: #fff;
+  --cc-text-2: rgba(255, 255, 255, .9);
+  --cc-blur: blur(16px) saturate(190%) brightness(.68);   /* dims a bright backdrop (the crest, the pale sky) under white text */
+  --cc-label-bg: var(--cc-bg);          /* labels sit on bare wallpaper: a small glass pill keeps them 4.5:1 over the crest (both modes) */
+  --cc-label-filter: var(--cc-blur);
+  --cc-off: rgba(255, 255, 255, .20);
+  --cc-on: rgba(255, 255, 255, .97);
+  --cc-on-fg: #1a78f2;
+  --cc-track: rgba(255, 255, 255, .30);
+  --cc-shadow: 0 8px 24px rgba(8, 40, 120, .16);
+
+  /* Dock */
+  --dock-bg: rgba(255, 255, 255, .26);
+  --dock-sep: rgba(0, 0, 0, .16);
+  --dock-dot: rgba(0, 0, 0, .55);
+  --badge-bg: rgba(255, 255, 255, .94);
+  --badge-text: rgba(0, 0, 0, .78);
+  --badge-rim: rgba(0, 0, 0, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-1: rgba(255, 255, 255, .92);
+    --text-2: rgba(255, 255, 255, .64);
+    --text-3: rgba(255, 255, 255, .34);
+    --sep: rgba(255, 255, 255, .12);
+    --hover: rgba(255, 255, 255, .06);
+    --sel: rgba(255, 255, 255, .10);
+
+    /* system blue in dark too, like refs 12-14 */
+    --accent: #0a84ff;
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --red-text: color-mix(in srgb, var(--red) 66%, #fff);
+    --accent-text: color-mix(in srgb, var(--accent) 75%, #fff);
+
+    --c-all: #98989d;
+    --c-today: #0a84ff;
+    --c-upcoming: #ff453a;
+    --c-done: #98989d;
+    --c-uni: #8e8cff;
+    --c-personal: #ff9f0a;
+    --c-projects: #40c8e0;
+    --c-societies: #ff4f74;
+    --c-shopping: #30d158;
+
+    --wp-base: #0a0f22;
+    --wp-sky-1: #070b1a;
+    --wp-sky-2: #10162e;
+    --wp-sky-3: #24203c;
+    --wp-sky-4: #161b34;
+    --wp-fold: #1a3c92;
+    --wp-fold-hi: #2f4f9c;
+    --wp-lip-1: #5d79b8;
+    --wp-lip-2: #23448f;
+    --wp-body-1: #12307f;
+    --wp-body-2: #0a1d5a;
+    --wp-body-3: #163a8c;
+    --wp-core: #050f3a;
+    --wp-glow: #22479a;
+    --wp-haze: #26294a;
+    --wp-crest: #b9ccff;
+    --wp-streak: #4a6fc0;
+
+    --sheet-bg: rgba(22, 24, 34, .46);
+    --sheet-side: rgba(36, 38, 48, .50);
+    --sheet-shadow: 0 24px 60px rgba(0, 0, 0, .45), 0 2px 10px rgba(0, 0, 0, .25);
+    --rim-a: rgba(255, 255, 255, .34);
+    --rim-b: rgba(255, 255, 255, .08);
+    --field-bg: rgba(255, 255, 255, .08);
+    --round-bg: rgba(255, 255, 255, .10);
+    --tick-ring: rgba(255, 255, 255, .42);
+    --badge-ring: rgba(30, 32, 42, .95);
+
+    --tile-bg: linear-gradient(160deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .07));
+    --tile-text: rgba(255, 255, 255, .94);
+    --tile-sub: #8cc8ff;                 /* blue, not amber: one accent in both modes */
+    --tile-warn: #ffaaa4;
+    --tile-tick: rgba(255, 255, 255, .10);
+
+    --cc-bg: linear-gradient(150deg, rgba(40, 44, 62, .42), rgba(22, 24, 36, .30) 55%, rgba(34, 38, 56, .38));
+    --cc-text: rgba(255, 255, 255, .94);
+    --cc-text-2: rgba(255, 255, 255, .72);
+    --cc-blur: blur(16px) saturate(190%);
+    --cc-off: rgba(255, 255, 255, .11);
+    --cc-on: rgba(255, 255, 255, .92);
+    --cc-on-fg: #0a84ff;                 /* on toggles: white disc, system blue glyph (was orange) */
+    --cc-track: rgba(255, 255, 255, .16);
+    --cc-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+
+    --dock-bg: rgba(26, 28, 40, .40);
+    --dock-sep: rgba(255, 255, 255, .16);
+    --dock-dot: rgba(255, 255, 255, .6);
+    --badge-bg: rgba(64, 66, 80, .96);
+    --badge-text: rgba(255, 255, 255, .92);
+    --badge-rim: rgba(255, 255, 255, .22);
+  }
+}
+
+:root {
+  --accent-fill: color-mix(in srgb, var(--accent) 86%, #000);   /* white text on it stays above 4.5:1 */
+}
+@media (prefers-color-scheme: dark) {
+  :root { --accent-fill: color-mix(in srgb, var(--accent) 80%, #000); }
+}
+
+/* ---------- base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--text-1);
+  background: var(--wp-base);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button, input { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: default; -webkit-tap-highlight-color: transparent; }
+svg.ic { width: 1em; height: 1em; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* shared Liquid Glass rim: bright top-left and bottom-right, dim sides */
+.rim { position: relative; }
+.rim::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--rim-a) 0%, var(--rim-b) 28%, rgba(255,255,255,0) 50%, var(--rim-b) 72%, var(--rim-a) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ---------- wallpaper ---------- */
+.wallpaper { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.wallpaper svg { width: 100%; height: 100%; display: block; }
+.wp-s1 { stop-color: var(--wp-sky-1); }
+.wp-s2 { stop-color: var(--wp-sky-2); }
+.wp-s3 { stop-color: var(--wp-sky-3); }
+.wp-s4 { stop-color: var(--wp-sky-4); }
+.wp-b0 { stop-color: var(--wp-lip-1); }
+.wp-b1 { stop-color: var(--wp-lip-2); }
+.wp-b2 { stop-color: var(--wp-body-1); }
+.wp-b3 { stop-color: var(--wp-body-2); }
+.wp-b4 { stop-color: var(--wp-body-3); }
+.wp-fold { fill: var(--wp-fold); }
+.wp-fold-hi { fill: var(--wp-fold-hi); }
+.wp-core { fill: var(--wp-core); }
+.wp-glow { fill: var(--wp-glow); }
+.wp-haze { fill: var(--wp-haze); }
+.wp-crest { stroke: var(--wp-crest); fill: none; }
+.wp-streak { stroke: var(--wp-streak); fill: none; }
+.wp-lip { stroke: var(--wp-lip-1); fill: none; }
+/* Static glass (glass, in the script): the SVG is drawn once into a canvas, and the still glass on it gets its
+   blurred backdrop as a baked image (--baked) instead of a live backdrop-filter. Same look, no re-blur per frame. */
+.wallpaper__raster { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 50%; }
+.wallpaper.is-raster svg { display: none; }
+.sheet:is(.is-baking, .is-baked) { background: linear-gradient(var(--sheet-bg), var(--sheet-bg)), var(--baked) 0 0 / 100% 100% no-repeat; }
+.cc-label:is(.is-baking, .is-baked) { background: var(--cc-label-bg), var(--baked) 0 0 / 100% 100% no-repeat; }
+.cc-clear:is(.is-baking, .is-baked) { background: var(--cc-bg), var(--baked) 0 0 / 100% 100% no-repeat; }
+.cc-mod:is(.is-baking, .is-baked) { background: var(--cc-bg), var(--baked) 0 0 / 100% 100% no-repeat; }
+.cc-round.is-on:is(.is-baking, .is-baked) { background: linear-gradient(var(--cc-on), var(--cc-on)), var(--baked) 0 0 / 100% 100% no-repeat; }
+:is(.sheet, .cc-label, .cc-clear, .cc-mod).is-baked { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* ---------- desktop layout ---------- */
+.desktop {
+  position: relative; z-index: 1; height: 100vh; height: 100dvh;
+  --top-gap: 28px;
+  --cc-w: 288px;
+  --cc-right: 12px;
+  --stage: calc(100vw - var(--cc-w) - var(--cc-right));   /* width left of Control Center */
+  --edge: clamp(32px, 5vw, 72px);                          /* wallpaper either side of the sheet */
+  --pad: 14px;
+  --foot: 52px;
+  /* the board: as wide as the stage allows, 16:9, and never taller than the window */
+  --board-w: min(calc(1120px - 2 * var(--pad)), calc(var(--stage) - 2 * var(--edge) - 2 * var(--pad)),
+                 calc((100dvh - 2 * var(--top-gap) - var(--pad) - var(--foot)) * 16 / 9));
+  --sheet-h: calc(var(--board-w) * 9 / 16 + var(--pad) + var(--foot));
+  --top: max(var(--top-gap), calc((100dvh - var(--sheet-h)) / 2));   /* sheet and Control Center share a top edge */
+}
+
+/* ---------- the sheet: the board ---------- */
+.sheet {
+  position: absolute;
+  top: var(--top);
+  left: calc(var(--stage) / 2);
+  transform: translateX(-50%);
+  width: calc(var(--board-w) + 2 * var(--pad));   /* the board's width, so the hint wraps under it */
+  display: flex; flex-direction: column;
+  padding: var(--pad) var(--pad) 0;
+  border-radius: 30px;   /* the board's 16 + the 14px padding, so the corners nest */
+  background: var(--sheet-bg);
+  -webkit-backdrop-filter: blur(34px) saturate(165%);
+  backdrop-filter: blur(34px) saturate(165%);
+  box-shadow: var(--sheet-shadow), inset 0 0 0 .5px rgba(255,255,255,.18);
+}
+/* the TV's whiteboard, white in both modes (it is what the TV shows) */
+canvas#c {
+  display: block;
+  width: var(--board-w);
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 0 0 .5px var(--sep), 0 1px 4px rgba(12, 36, 92, .10);
+  touch-action: none;
+  cursor: crosshair;
+}
+/* dark mode: the board a little dimmer here, so it isn't the brightest thing on the screen (the TV keeps its own) */
+@media (prefers-color-scheme: dark) { canvas#c { filter: brightness(.9); } }
+/* footer bar: the hint and what just happened */
+.foot {
+  display: flex; align-items: center;
+  min-height: var(--foot);
+  padding: 8px 0;   /* the text starts on the board's left edge */
+  text-wrap: pretty;   /* no one-word last line */
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-2);
+}
+
+/* ---------- Control Center: the tools ---------- */
+.cc {
+  position: absolute;
+  top: var(--top);
+  right: var(--cc-right);
+  width: var(--cc-w);
+  --cell: 63px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  color: var(--cc-text);
+}
+.cc-mod {
+  background: var(--cc-bg);
+  -webkit-backdrop-filter: var(--cc-blur);
+  backdrop-filter: var(--cc-blur);
+  box-shadow: var(--cc-shadow), inset 0 0 16px rgba(255,255,255,.14);
+  transition: transform 160ms var(--ease-snap), background-color 180ms var(--ease-snap);
+}
+button.cc-mod:active { transform: scale(.97); }
+.cc-mod.rim::after { padding: 1.2px; background: linear-gradient(135deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.35) 26%, rgba(255,255,255,.10) 50%, rgba(255,255,255,.35) 74%, rgba(255,255,255,.9) 100%); }
+@media (prefers-color-scheme: dark) {
+  .cc-mod.rim::after { background: linear-gradient(135deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,.12) 26%, rgba(255,255,255,.04) 50%, rgba(255,255,255,.12) 74%, rgba(255,255,255,.4) 100%); }
+}
+
+/* colours: a 4x2 module of swatches */
+.cc-colours {
+  grid-column: 1 / -1;
+  height: calc(2 * var(--cell) + 12px);
+  border-radius: 30px;
+  padding: 8px 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));   /* with Control Center's 12px gap: on the round buttons' columns */
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+}
+.swatch { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
+.swatch__dot {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.55), 0 1px 3px rgba(0,0,0,.25);
+  transition: transform 140ms var(--ease-snap);
+}
+.swatch:active .swatch__dot { transform: scale(.94); }
+.swatch.is-on .swatch__dot { outline: 2.5px solid var(--cc-on); outline-offset: 3px; }
+
+/* size: a Control Center slider */
+.cc-slider {
+  grid-column: 1 / -1;
+  height: var(--cell);
+  border-radius: 999px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px 0 10px;
+}
+.cc-slider__icon {
+  width: 42px; height: 42px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--cc-off);
+  font-size: 20px;
+  box-shadow: inset 0 .5px 0 rgba(255,255,255,.35);
+}
+.cc-slider__title { font-size: 13px; font-weight: 600; flex: none; }
+.cc-slider input {
+  --f: 0;
+  flex: 1; min-width: 0;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: default;
+}
+/* a 24px track filled in white up to the knob; the knob is a 24px disc inside a 44px thumb, so it's easy to grab */
+.cc-slider input::-webkit-slider-runnable-track {
+  height: 24px;
+  border-radius: 12px;
+  background: linear-gradient(to right, var(--cc-on) calc(22px + (100% - 44px) * var(--f)), var(--cc-track) 0);
+}
+.cc-slider input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 44px; height: 44px;
+  margin-top: -10px;
+  border: 0;
+  background: radial-gradient(circle, #fff 0 11.5px, rgba(0,0,0,.20) 12px, rgba(0,0,0,0) 14px);
+}
+.cc-slider input::-moz-range-track { height: 24px; border-radius: 12px; background: var(--cc-track); }
+.cc-slider input::-moz-range-progress { height: 24px; border-radius: 12px; background: var(--cc-on); }
+.cc-slider input::-moz-range-thumb { width: 24px; height: 24px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+
+/* round buttons with a label under each (Eraser, Move, Picture, Undo) */
+.cc-item { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.cc-round {
+  width: var(--cell); height: var(--cell);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 23px;
+}
+.cc-round.is-on, .cc-pill.is-on .cc-pill__icon { background: var(--cc-on); color: var(--cc-on-fg); }
+.cc-label {
+  font-size: 11px; font-weight: 500; color: var(--cc-text-2); white-space: nowrap; text-shadow: 0 0 6px rgba(0,0,0,.18);
+  padding: 1px 6px; border-radius: 999px;
+  background: var(--cc-label-bg); -webkit-backdrop-filter: var(--cc-label-filter); backdrop-filter: var(--cc-label-filter);
+}
+
+/* pill toggles (Show on TV, Hide from TV) */
+.cc-pill {
+  grid-column: span 2;
+  height: var(--cell);
+  border-radius: 999px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 10px 0 9px;
+  text-align: left;
+}
+.cc-pill__icon {
+  width: 42px; height: 42px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--cc-off);
+  color: var(--cc-text);
+  font-size: 20px;
+  box-shadow: inset 0 .5px 0 rgba(255,255,255,.35);
+}
+.cc-pill__title { min-width: 0; text-wrap: balance; font-size: 13px; font-weight: 600; line-height: 16px; }
+/* beside the board the pills are narrow: "Show" and "Hide" (their TV icons and aria-labels say the rest) */
+@media (min-width: 1024px) and (min-height: 620px) { .cc-pill__more { display: none; } }
+
+/* Clear: a small glass pill at the foot, like Edit Lists */
+.cc-clear {
+  position: relative;
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 4px;
+  height: 28px;
+  padding: 0 15px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cc-text);
+  background: var(--cc-bg);
+  -webkit-backdrop-filter: var(--cc-blur);
+  backdrop-filter: var(--cc-blur);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+  transition: transform 140ms var(--ease-snap);
+}
+.cc-clear:active { transform: scale(.97); }
+
+/* ---------- focus ---------- */
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 2px; }
+.cc :focus-visible { outline-color: var(--cc-on); }
+.cc-slider input:focus-visible { outline: 0; }
+.cc-slider:focus-within:has(input:focus-visible) { outline: 2px solid var(--cc-on); outline-offset: 2px; }
+
+/* ---------- narrow or short windows: readable stack ---------- */
+@media (max-width: 1023px), (max-height: 619px) {
+  body { overflow-x: hidden; overflow-y: auto; }
+  .desktop { height: auto; display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 24px 16px 32px; }
+  .sheet, .cc { position: static; transform: none; }
+  .sheet { width: 100%; max-width: 1120px; }
+  canvas#c { width: 100%; }
+}
+@media (max-width: 640px) {
+  /* Control Center spans the same 16px gutters as the sheet: four fluid square cells */
+  .cc { --cell: calc((100vw - 32px - 36px) / 4); width: 100%; }
+  .cc-round { width: 100%; height: auto; aspect-ratio: 1; }
+}
+/* phones and touch: 44x44 hit areas; Clear keeps its 28px pill drawn inside a 44px-tall button */
+@media (max-width: 640px), (pointer: coarse) {
+  .cc-clear { height: 44px; margin-top: -4px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; isolation: isolate; }
+  .cc-clear::before { content: ""; position: absolute; inset: 8px 0; z-index: -1; border-radius: 14px; background: var(--cc-bg); -webkit-backdrop-filter: var(--cc-blur); backdrop-filter: var(--cc-blur); box-shadow: inset 0 0 0 1px rgba(255,255,255,.55); }
+  .cc-clear:is(.is-baking, .is-baked) { background: none; }
+  .foot { font-size: 13px; line-height: 17px; }
+}
+
+/* ---------- accessibility fallbacks ---------- */
+@media (prefers-reduced-transparency: reduce) {
+  .sheet, .cc-mod, .cc-clear, .cc-clear::before { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .sheet { background: rgba(246, 246, 248, .97); }
+  .cc-mod, .cc-clear { background: rgb(30, 74, 168); }
+  .cc-clear::before { background: rgb(30, 74, 168); }
+  :root { --cc-label-bg: rgb(30, 74, 168); --cc-label-filter: none; }
+}
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  :root { --cc-label-bg: rgba(48, 48, 56, .96); }
+  .sheet { background: rgba(40, 40, 44, .97); }
+  .cc-mod, .cc-clear, .cc-clear::before { background: rgba(48, 48, 56, .96); }
+}
+@media (prefers-reduced-transparency: reduce) and (max-width: 640px), (prefers-reduced-transparency: reduce) and (pointer: coarse) {
+  .cc-clear { background: none; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sheet { background: rgba(246, 246, 248, .96); }
+  .cc-mod, .cc-clear { background: rgb(30, 74, 168); }
+  @media (prefers-color-scheme: dark) { .sheet { background: rgba(40, 40, 44, .97); } .cc-mod, .cc-clear { background: rgba(48, 48, 56, .96); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 150ms !important; transition-property: opacity !important; }
+}
+/* the To Do link and the sign-in message's link */
+a.cc-pill { text-decoration: none; color: inherit; }
+#status a { color: var(--accent-text); font-weight: 600; margin-left: 4px; }
+</style>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-size" viewBox="0 0 24 24"><circle cx="6.5" cy="12" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="12" r="4.6" fill="currentColor" stroke="none"></circle></symbol>
+  <symbol id="i-eraser" viewBox="0 0 24 24"><path d="M9 19.5l-3.9-3.9a1.8 1.8 0 0 1 0-2.5l8-8a1.8 1.8 0 0 1 2.5 0l3.9 3.9a1.8 1.8 0 0 1 0 2.5L12 19.5z"></path><path d="M9.2 9l5.8 5.8M12 19.5h7.5"></path></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 3.8v16.4M3.8 12h16.4"></path><path d="M9.6 6.2L12 3.8l2.4 2.4M9.6 17.8l2.4 2.4 2.4-2.4M6.2 9.6L3.8 12l2.4 2.4M17.8 9.6l2.4 2.4-2.4 2.4"></path></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l4.8-4.6 3.4 3.2 3-2.8 4.8 4.4"></path></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 6.5l-4 4 4 4"></path><path d="M5.5 10.5H14a4.5 4.5 0 0 1 0 9h-3"></path></symbol>
+  <symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12.5" rx="2.5"></rect><path d="M8.5 20h7"></path></symbol>
+  <symbol id="i-tv-off" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12.5" rx="2.5"></rect><path d="M8.5 20h7M9 8l6 5.5M15 8l-6 5.5"></path></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5z"></path></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"></path></symbol>
+</svg>
+
+<div class="wallpaper" aria-hidden="true">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="wpSky" x1="0" y1="0" x2=".2" y2="1">
+        <stop offset="0" class="wp-s1"></stop>
+        <stop offset=".28" class="wp-s2"></stop>
+        <stop offset=".50" class="wp-s3"></stop>
+        <stop offset="1" class="wp-s4"></stop>
+      </linearGradient>
+      <linearGradient id="wpBody" x1=".18" y1=".05" x2=".72" y2="1">
+        <stop offset="0" class="wp-b0"></stop>
+        <stop offset=".12" class="wp-b1"></stop>
+        <stop offset=".30" class="wp-b2"></stop>
+        <stop offset=".62" class="wp-b3"></stop>
+        <stop offset="1" class="wp-b4"></stop>
+      </linearGradient>
+      <filter id="blurXL" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="60"></feGaussianBlur></filter>
+      <filter id="blurL" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="34"></feGaussianBlur></filter>
+      <filter id="blurM" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"></feGaussianBlur></filter>
+      <filter id="blurS" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"></feGaussianBlur></filter>
+      <filter id="blurXS" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.1"></feGaussianBlur></filter>
+      <clipPath id="wpWaveClip"><path d="M-40 790 C 230 610, 520 330, 800 175 C 960 88, 1080 34, 1220 -20 L 1500 -20 L 1500 940 L -40 940 Z"></path></clipPath>
+    </defs>
+
+    <!-- sky: blue-grey top, warm beige middle -->
+    <rect width="1440" height="900" fill="url(#wpSky)"></rect>
+    <!-- the blue fold on the left, above the main crest -->
+    <path class="wp-fold" filter="url(#blurL)" opacity=".9" d="M-80 530 C 90 490, 300 510, 480 610 C 360 680, 160 700, -80 740 Z"></path>
+    <path class="wp-fold-hi" filter="url(#blurM)" opacity=".7" d="M-60 512 C 120 478, 270 492, 420 562 C 300 576, 120 578, -60 598 Z"></path>
+
+    <!-- the main wave body -->
+    <g clip-path="url(#wpWaveClip)">
+      <rect width="1440" height="900" fill="url(#wpBody)"></rect>
+      <ellipse class="wp-core" filter="url(#blurXL)" opacity=".75" cx="1040" cy="560" rx="420" ry="150" transform="rotate(-26 1040 560)"></ellipse>
+      <ellipse class="wp-glow" filter="url(#blurXL)" opacity=".75" cx="720" cy="800" rx="420" ry="140" transform="rotate(-14 720 800)"></ellipse>
+      <ellipse class="wp-haze" filter="url(#blurXL)" opacity=".9" cx="1420" cy="860" rx="300" ry="230"></ellipse>
+      <!-- ribbons inside the curl -->
+      <path class="wp-streak" filter="url(#blurM)" opacity=".55" stroke-width="46" d="M360 760 C 600 560, 860 360, 1260 250"></path>
+      <path class="wp-streak" filter="url(#blurS)" opacity=".45" stroke-width="10" d="M230 820 C 480 620, 760 420, 1140 300 C 1260 262, 1360 250, 1480 250"></path>
+      <path class="wp-streak" filter="url(#blurS)" opacity=".35" stroke-width="7" d="M520 820 C 760 640, 1000 520, 1480 430"></path>
+      <!-- the translucent lip just under the crest -->
+      <path class="wp-lip" filter="url(#blurM)" opacity=".6" stroke-width="44" d="M-40 818 C 230 638, 520 358, 800 203 C 960 116, 1080 62, 1240 8"></path>
+      <path class="wp-crest" filter="url(#blurS)" opacity=".42" stroke-width="4" d="M-30 822 C 240 642, 530 362, 810 206 C 970 118, 1090 64, 1240 11"></path>
+      <path class="wp-crest" filter="url(#blurS)" opacity=".28" stroke-width="3" d="M-20 860 C 250 676, 545 392, 822 236 C 982 146, 1100 92, 1250 40"></path>
+    </g>
+    <!-- the bright specular crest line -->
+    <path class="wp-crest" filter="url(#blurM)" opacity=".55" stroke-width="16" d="M-40 790 C 230 610, 520 330, 800 175 C 960 88, 1080 34, 1220 -20"></path>
+    <path class="wp-crest" filter="url(#blurXS)" opacity=".95" stroke-width="2.6" d="M-40 790 C 230 610, 520 330, 800 175 C 960 88, 1080 34, 1220 -20"></path>
+  </svg>
+</div>
+
+<main class="desktop">
+  <section class="sheet rim" aria-label="Whiteboard">
+    <canvas id="c" width="1920" height="1080"></canvas>
+    <div class="foot" id="status" role="status" aria-live="polite"></div>
+  </section>
+
+  <aside class="cc" aria-label="Tools">
+    <div class="cc-mod rim cc-colours" id="swatches" role="group" aria-label="Colour"></div>
+
+    <label class="cc-mod rim cc-slider">
+      <span class="cc-slider__icon" aria-hidden="true"><svg class="ic"><use href="#i-size"></use></svg></span>
+      <span class="cc-slider__title">Size</span>
+      <input id="size" type="range" min="2" max="40" value="8">
+    </label>
+
+    <div class="cc-item">
+      <button class="cc-mod rim cc-round" id="eraser" aria-pressed="false" aria-label="Eraser"><svg class="ic"><use href="#i-eraser"></use></svg></button>
+      <span class="cc-label" aria-hidden="true">Eraser</span>
+    </div>
+    <div class="cc-item">
+      <button class="cc-mod rim cc-round" id="mover" aria-pressed="false" aria-label="Move"><svg class="ic"><use href="#i-move"></use></svg></button>
+      <span class="cc-label" aria-hidden="true">Move</span>
+    </div>
+    <div class="cc-item">
+      <button class="cc-mod rim cc-round" id="picture" aria-label="Picture"><svg class="ic"><use href="#i-photo"></use></svg></button>
+      <span class="cc-label" aria-hidden="true">Picture</span>
+    </div>
+    <div class="cc-item">
+      <button class="cc-mod rim cc-round" id="undo" aria-label="Undo"><svg class="ic"><use href="#i-undo"></use></svg></button>
+      <span class="cc-label" aria-hidden="true">Undo</span>
+    </div>
+
+    <button class="cc-mod rim cc-pill is-on" id="show" aria-pressed="true" aria-label="Show on TV">
+      <span class="cc-pill__icon" aria-hidden="true"><svg class="ic"><use href="#i-tv"></use></svg></span>
+      <span class="cc-pill__title">Show<span class="cc-pill__more"> on TV</span></span>
+    </button>
+    <button class="cc-mod rim cc-pill" id="hide" aria-pressed="false" aria-label="Hide from TV">
+      <span class="cc-pill__icon" aria-hidden="true"><svg class="ic"><use href="#i-tv-off"></use></svg></span>
+      <span class="cc-pill__title">Hide<span class="cc-pill__more"> from TV</span></span>
+    </button>
+
+    <button class="cc-mod rim cc-pill" id="note" aria-label="Send a note to the TV">
+      <span class="cc-pill__icon" aria-hidden="true"><svg class="ic"><use href="#i-note"></use></svg></span>
+      <span class="cc-pill__title">Note<span class="cc-pill__more"> to TV</span></span>
+    </button>
+    <a class="cc-mod rim cc-pill" href="./" aria-label="Back to To Do">
+      <span class="cc-pill__icon" aria-hidden="true"><svg class="ic"><use href="#i-back"></use></svg></span>
+      <span class="cc-pill__title">To Do</span>
+    </a>
+
+    <button class="cc-clear" id="clear">Clear</button>
+  </aside>
+</main>
+
+<script>
+/* Static glass. The wallpaper is drawn once into a canvas (no live SVG blur), and glass that sits still on it
+   (the task sheet, Control Center's labels and Edit Controls) gets its blurred backdrop baked into an image
+   at the same blur, so nothing re-blurs while the list scrolls. It looks the same; on a resize, a theme change,
+   the stacked layout or reduced transparency the live backdrop-filter is used instead. */
+const glass = (() => {
+  const wp = document.querySelector('.wallpaper'), svg = wp?.querySelector('svg');
+  if (!svg || !window.CanvasRenderingContext2D) return { refresh() {} };
+  const desk = matchMedia('(min-width: 1024px) and (min-height: 620px)');
+  const dark = matchMedia('(prefers-color-scheme: dark)');
+  const solid = matchMedia('(prefers-reduced-transparency: reduce)');
+  const canFilter = 'filter' in CanvasRenderingContext2D.prototype;
+  const SEL = '.sheet, .cc-label, .cc-clear, .cc-mod';
+  const rasters = {};                 // 'light' | 'dark' -> canvas, kept for the session
+  let shown = null, job = 0, timer = 0;
+  const urls = new Map();
+
+  // the wallpaper SVG with its CSS colours written in, so it draws the same outside the page
+  function svgText() {
+    const copy = svg.cloneNode(true), src = svg.querySelectorAll('*'), dst = copy.querySelectorAll('*');
+    src.forEach((el, i) => {
+      if (!el.getAttribute('class')) return;
+      const cs = getComputedStyle(el), d = dst[i];
+      if (el.tagName === 'stop') d.setAttribute('stop-color', cs.stopColor);
+      else { d.setAttribute('fill', cs.fill); d.setAttribute('stroke', cs.stroke); }
+      d.removeAttribute('class');
+    });
+    return copy;
+  }
+  // big enough for this screen at this pixel density, so it is only ever scaled down (cover, centred = xMidYMid slice)
+  function rasterScale() {
+    const dpr = Math.min(devicePixelRatio || 1, 3);
+    const s = Math.max(screen.width, innerWidth) / 1440, t = Math.max(screen.height, innerHeight) / 900;
+    return Math.min(Math.max(s, t) * dpr, 4096 / 1440);
+  }
+  async function raster(scheme) {
+    const k = rasterScale();
+    if (rasters[scheme] && rasters[scheme]._k >= k - 0.01) return rasters[scheme];
+    const copy = svgText(), W = Math.round(1440 * k), H = Math.round(900 * k);
+    copy.setAttribute('width', W); copy.setAttribute('height', H);
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(copy)], { type: 'image/svg+xml' }));
+    try {
+      const img = new Image(); img.src = url; await img.decode();
+      const c = document.createElement('canvas'); c.width = W; c.height = H; c._k = k;
+      c.className = 'wallpaper__raster'; c.setAttribute('aria-hidden', 'true');
+      c.getContext('2d').drawImage(img, 0, 0, W, H);
+      return (rasters[scheme] = c);
+    } finally { URL.revokeObjectURL(url); }
+  }
+  // where a CSS pixel of the viewport lands on the raster (object-fit: cover, centred)
+  function mapper(c) {
+    const s = Math.max(innerWidth / 1440, innerHeight / 900), ox = (innerWidth - 1440 * s) / 2, oy = (innerHeight - 900 * s) / 2, r = c._k / s;
+    return (x, y) => [(x - ox) * r, (y - oy) * r, r];
+  }
+  // backdrop-filter mirrors the backdrop at the element's edge; do the same so the edges match
+  function bakeOne(el, c, f) {
+    const b = el.getBoundingClientRect(), w = Math.round(b.width), h = Math.round(b.height);
+    if (!w || !h) return null;
+    const blur = +(/blur\(([\d.]+)px\)/.exec(f)?.[1] || 0), P = Math.ceil(blur * 3) + 2;
+    const map = mapper(c), [sx, sy, r] = map(b.left, b.top);
+    const src = document.createElement('canvas'); src.width = w + 2 * P; src.height = h + 2 * P;
+    const g = src.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    const piece = (dx, dy, fx, fy) => { g.save(); g.translate(P + dx, P + dy); g.scale(fx, fy); g.drawImage(c, sx, sy, w * r, h * r, 0, 0, w, h); g.restore(); };
+    piece(0, 0, 1, 1);
+    piece(0, 0, -1, 1); piece(2 * w, 0, -1, 1); piece(0, 0, 1, -1); piece(0, 2 * h, 1, -1);
+    piece(0, 0, -1, -1); piece(2 * w, 0, -1, -1); piece(0, 2 * h, -1, -1); piece(2 * w, 2 * h, -1, -1);
+    const out = document.createElement('canvas'); out.width = w; out.height = h;
+    const o = out.getContext('2d'); o.filter = f; o.drawImage(src, -P, -P);
+    return out;
+  }
+  const on = () => desk.matches && !solid.matches && canFilter;
+  // back to the live blur: always correct straight away, so dropping a bake never leaves a gap
+  function clear() { document.querySelectorAll('.is-baking, .is-baked').forEach(el => el.classList.remove('is-baking', 'is-baked')); }
+  async function refresh() {
+    const my = ++job, scheme = dark.matches ? 'dark' : 'light';
+    clear();
+    let c;
+    try { c = await raster(scheme); } catch { c = null; }
+    if (my !== job) return;
+    if (c && shown !== c) { shown?.remove(); wp.append(c); shown = c; }
+    wp.classList.toggle('is-raster', !!c);
+    if (!c || !on()) return;
+    await new Promise(requestAnimationFrame);
+    if (my !== job) return;
+    const els = [...document.querySelectorAll(SEL)], jobs = [];
+    for (const el of els) {
+      const f = getComputedStyle(el).backdropFilter;
+      if (!f || f === 'none') continue;
+      try {   // a browser that taints the canvas just keeps the live blur
+        const out = bakeOne(el, c, f);
+        if (out) jobs.push(new Promise(res => out.toBlob(bl => res([el, bl]))));
+      } catch { return; }
+    }
+    // decode every image before the page sees it, so the CSS background is ready on its first frame
+    const done = await Promise.all((await Promise.all(jobs)).map(async ([el, bl]) => {
+      if (!bl) return null;
+      const u = URL.createObjectURL(bl), img = new Image();
+      img.src = u;
+      try { await img.decode(); } catch { URL.revokeObjectURL(u); return null; }
+      return [el, u, img];
+    }));
+    const ready = done.filter(Boolean);
+    const drop = () => ready.forEach(([, u]) => URL.revokeObjectURL(u));
+    if (my !== job) return drop();
+    for (const [el, u, img] of ready) {
+      if (urls.has(el)) URL.revokeObjectURL(urls.get(el).u);
+      urls.set(el, { u, img });               // the decoded image stays referenced while it's on screen
+      el.style.setProperty('--baked', `url("${u}")`);
+      el.classList.add('is-baking');           // baked image over the live blur: same look either way
+    }
+    // let the baked layer paint (two frames), then switch the live blur off underneath it
+    await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
+    if (my !== job) return;
+    for (const [el] of ready) if (el.classList.contains('is-baking')) el.classList.add('is-baked');
+  }
+  const soon = () => { clear(); clearTimeout(timer); timer = setTimeout(refresh, 180); };
+  addEventListener('resize', soon);
+  for (const m of [desk, solid]) m.addEventListener('change', soon);
+  // light <-> dark: back to the live SVG at once (its colours follow the theme), then draw the new one
+  dark.addEventListener('change', () => { job++; wp.classList.remove('is-raster'); shown?.remove(); shown = null; soon(); });
+  // a label that changes size would stretch its baked image: re-bake (the live blur covers the gap)
+  const sizes = new WeakMap();
+  const ro = new ResizeObserver(list => {
+    let moved = false;
+    for (const e of list) { const k = Math.round(e.contentRect.width) + 'x' + Math.round(e.contentRect.height); if (sizes.has(e.target) && sizes.get(e.target) !== k) moved = true; sizes.set(e.target, k); }
+    if (moved) soon();
+  });
+  document.querySelectorAll(SEL).forEach(el => ro.observe(el));
+  return { refresh, soon };
+})();
+(document.fonts?.ready || Promise.resolve()).then(() => glass.refresh());
+</script>
+<script>
+/* The TV whiteboard. Everything drawn here goes to Supabase (public.whiteboard, through wb_apply), and Free My TV on
+   the TV reads it from there, so no computer has to be on. It uses the To Do app's sign-in (same site, same saved
+   session), so sign in there once under Edit Lists → Sync. */
+const SUPABASE_URL = 'https://ajgymyqgthxaiqoniwbe.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_5JI6nVkFUSISlmX1dntU8Q_QTJUGxR5';
+const SESSION_KEY = 'todo.session';
+const COLORS = ['#1D1D1F', '#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#AF52DE', '#FF2D55'];
+const NAMES = ['Black', 'Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Pink'];
+// The hints: the keyboard shortcuts only where there's a keyboard (not on a phone or tablet).
+const KEYS = !matchMedia('(pointer: coarse)').matches, MOD = /Mac|iP/.test(navigator.platform) ? '⌘' : 'Ctrl+';
+const HINT = 'Draw here: it shows on the TV while Free My TV is open.' +
+  (KEYS ? ` ${MOD}Z undo · E eraser · V move · ${MOD}V or drop a picture` : '');
+const MOVE_HINT = 'Move: drag a picture to move it, or a corner to resize it.' + (KEYS ? ' Delete removes it, D goes back to drawing.' : '');
+const PLACE_HINT = KEYS ? 'Drag a box where the picture goes, or click to fill the board. Esc cancels.' : 'Drag a box where the picture goes, or tap to fill the board.';
+const HIDDEN_HINT = 'Hidden on the TV: what you draw is kept but won\'t show until you press Show.';
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+let color = COLORS[0], size = 8, erasing = false;
+let strokes = [], current = null, pending = [], pendingStroke = null, sending = false;
+let placing = null, box = null;   // a picture waiting to be placed, and the box being dragged for it
+let moving = false, selected = null, grab = null;   // the Move tool, the picture it has, and the drag under way
+let visible = true;   // false after Hide from TV
+let rev = -1;         // the board's version as this page last saw it
+let busy = 0;         // changes on their way: the board isn't reloaded under them
+let problem = '';     // what's wrong, if something is (shown in place of the hint)
+const loaded = {};    // pictures' <img>, by id
+
+// MARK: - Supabase, signed in as the To Do app is
+
+function readSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
+class SignIn extends Error {}
+let refreshing = null;
+async function accessToken() {
+  const s = readSession();   // the To Do app may have refreshed it since: always the newest
+  if (!s) throw new SignIn();
+  if (s.expires_at - Date.now() > 60e3) return s.access_token;
+  if (!refreshing) refreshing = (async () => {
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {method: 'POST',
+      headers: {apikey: SUPABASE_KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({refresh_token: s.refresh_token})});
+    const d = await r.json().catch(() => null);
+    if (!r.ok) {
+      if (r.status === 400 || r.status === 401) { try { localStorage.removeItem(SESSION_KEY); } catch {} throw new SignIn(); }
+      throw new Error('net');
+    }
+    const next = {access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Date.now() + d.expires_in * 1000,
+                  email: d.user.email, id: d.user.id};
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(next)); } catch {}   // shared with the To Do app
+    return next.access_token;
+  })().finally(() => { refreshing = null; });
+  return refreshing;
+}
+async function api(method, path, body) {
+  const r = await fetch(SUPABASE_URL + path, {method, body: body && JSON.stringify(body),
+    headers: {apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken(), 'Content-Type': 'application/json'}});
+  const text = await r.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
+  if (r.status === 401) throw new SignIn();
+  if (!r.ok) throw new Error((data && data.message) || 'net');
+  return data;
+}
+function trouble(e) {
+  problem = e instanceof SignIn ? 'signin'
+    : /full|picture|note/i.test(e.message) ? e.message : navigator.onLine ? 'Couldn\'t reach the board. Trying again…' : 'Offline: what you draw now won\'t reach the TV.';
+  status('');
+}
+
+/** One change to the board (draw, image, move, remove, undo, clear, show, hide, note), as the database does it. */
+async function post(op, body) {
+  busy++;
+  try {
+    const next = await api('POST', '/rest/v1/rpc/wb_apply', {op, body: body || {}});
+    if (problem) { problem = ''; status(''); }
+    if (next !== rev + 1) { rev = -1; }   // someone else changed it too: reload when this settles
+    else rev = next;
+    return true;
+  } catch (e) { trouble(e); return false; }
+  finally { busy--; if (!busy) setTimeout(refresh, 0); }
+}
+
+/** The board as the database has it (undo, clear, another device drawing): reloaded when its version moved. */
+async function refresh() {
+  if (busy || current || grab || document.hidden) return;
+  try {
+    const head = await api('GET', '/rest/v1/whiteboard?select=rev,visible');
+    if (problem) { problem = ''; status(''); }
+    const row = head && head[0];
+    if (!row) { rev = 0; return; }
+    setVisible(row.visible);
+    if (row.rev === rev) return;
+    const full = await api('GET', '/rest/v1/whiteboard?select=rev,items');
+    if (busy || current || grab || !full || !full[0]) return;
+    rev = full[0].rev;
+    strokes = full[0].items || [];
+    if (selected && !selectedItem()) selected = null;
+    redraw();
+  } catch (e) { trouble(e); }
+}
+setInterval(refresh, 2500);
+document.addEventListener('visibilitychange', refresh);
+addEventListener('online', refresh);
+
+// MARK: - The tools: colours, eraser, move, size, picture, undo, clear, show on TV, note
+
+// A Control Center toggle: lit when on.
+function press(b, on) { b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', on); }
+
+const swatchBox = document.getElementById('swatches');
+const swatches = COLORS.map((c, i) => {
+  const b = document.createElement('button');
+  b.className = 'swatch' + (c === color ? ' is-on' : '');
+  b.style.setProperty('--sw', c);
+  b.setAttribute('aria-label', NAMES[i]);
+  b.setAttribute('aria-pressed', c === color);
+  b.innerHTML = '<span class="swatch__dot"></span>';
+  b.onclick = () => { color = c; setEraser(false); setMoving(false); };
+  swatchBox.appendChild(b);
+  return b;
+});
+function tool(id, run) {
+  const b = document.getElementById(id);
+  b.onclick = run;
+  return b;
+}
+// One tool lit at a time: the colour while drawing, else Eraser or Move.
+function syncPen() { swatches.forEach((s, i) => press(s, !erasing && !moving && COLORS[i] === color)); }
+const eraser = tool('eraser', () => { setMoving(false); setEraser(!erasing); });
+function setEraser(on) { erasing = on; press(eraser, on); syncPen(); }
+const mover = tool('mover', () => setMoving(!moving));
+function setMoving(on) {
+  moving = on;
+  press(mover, on);
+  if (on && erasing) setEraser(false);
+  syncPen();
+  if (!on) selected = null;
+  canvas.style.cursor = on ? 'default' : '';
+  redraw();
+  status('');
+}
+const sizeInput = document.getElementById('size');
+const sizeFill = () => sizeInput.style.setProperty('--f', (sizeInput.value - sizeInput.min) / (sizeInput.max - sizeInput.min));
+sizeInput.oninput = e => { size = +e.target.value; sizeFill(); };
+sizeFill();
+const picker = document.createElement('input');
+picker.type = 'file';
+picker.accept = 'image/*';
+picker.onchange = () => { if (picker.files[0]) choose(picker.files[0]); picker.value = ''; };
+tool('picture', () => picker.click());
+function undo() {
+  const last = strokes.pop();
+  if (!last) return;
+  if (last.id === selected) selected = null;
+  redraw();
+  post('undo');
+}
+tool('undo', undo);
+tool('clear', () => {
+  if (!confirm('Clear the board?')) return;
+  strokes = []; selected = null; redraw();
+  post('clear');
+});
+const shower = tool('show', () => { setVisible(true); post('show'); });
+const hider = tool('hide', () => { setVisible(false); post('hide'); });
+tool('note', async () => {
+  const text = (prompt('A note for the TV (it pops up for a little while):') || '').trim();
+  if (!text) return;
+  if (await post('note', {text: text.slice(0, 280)})) status('Note sent to the TV.');
+});
+
+function status(text) {
+  const box = document.getElementById('status');
+  if (problem === 'signin') {
+    box.innerHTML = 'Sign in to the To Do app first (Edit Lists → Sync), then come back. <a href="./">Open To Do</a>';
+    return;
+  }
+  box.textContent = text || problem ||
+    (placing ? PLACE_HINT : !visible ? HIDDEN_HINT : moving ? MOVE_HINT : HINT);
+}
+
+// MARK: - Drawing: points are 0 to 1 across the board, so the TV draws them at its own size
+
+function point(e) {
+  const r = canvas.getBoundingClientRect();
+  return [+((e.clientX - r.left) / r.width).toFixed(4), +((e.clientY - r.top) / r.height).toFixed(4)];
+}
+function line(s, from) {
+  if (s.kind === 'image') return picture(s);
+  const w = canvas.width, h = canvas.height, p = s.points;
+  if (!p || !p.length) return;
+  ctx.strokeStyle = s.color;
+  ctx.lineWidth = s.size * w / 1920;
+  ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.beginPath();
+  const start = Math.max(0, from - 1);
+  ctx.moveTo(p[start][0] * w, p[start][1] * h);
+  for (let i = start; i < p.length; i++) ctx.lineTo(p[i][0] * w, p[i][1] * h);
+  if (p.length === 1) ctx.lineTo(p[0][0] * w + 0.01, p[0][1] * h);
+  ctx.stroke();
+}
+function picture(s) {
+  const img = loaded[s.id];
+  if (!img) {
+    // Not here yet: load it, then draw everything again so what's drawn over it stays on top.
+    const im = loaded[s.id] = new Image();
+    im.onload = redraw;
+    api('GET', '/rest/v1/whiteboard_image?select=data&id=eq.' + encodeURIComponent(s.id))
+      .then(rows => { if (rows && rows[0]) im.src = rows[0].data; })
+      .catch(() => { delete loaded[s.id]; });
+  } else if (img.complete && img.naturalWidth) {
+    ctx.drawImage(img, s.x * canvas.width, s.y * canvas.height, s.w * canvas.width, s.h * canvas.height);
+  }
+}
+function redraw() {
+  ctx.fillStyle = '#FFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  strokes.forEach(s => line(s, 0));
+  const sel = selectedItem();
+  if (sel) {
+    const W = canvas.width, H = canvas.height, k = handleSize();
+    ctx.strokeStyle = '#007AFF';
+    ctx.lineWidth = k / 5;
+    ctx.strokeRect(sel.x * W, sel.y * H, sel.w * W, sel.h * H);
+    ctx.fillStyle = '#FFF';
+    corners(sel).forEach(c => {
+      ctx.fillRect(c[0] - k / 2, c[1] - k / 2, k, k);
+      ctx.strokeRect(c[0] - k / 2, c[1] - k / 2, k, k);
+    });
+  }
+  if (placing && box) {
+    const r = fitBox(box);
+    ctx.globalAlpha = 0.6;
+    ctx.drawImage(placing.img, r.x * canvas.width, r.y * canvas.height, r.w * canvas.width, r.h * canvas.height);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// MARK: - Pictures: shrunk for the TV first (a phone photo is 12 MP), then placed with a dragged box
+
+function choose(file) {
+  if (!file.type.startsWith('image/')) return;
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 1600 / img.naturalWidth, 900 / img.naturalHeight);
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * scale);
+    c.height = Math.round(img.naturalHeight * scale);
+    const g = c.getContext('2d');
+    g.fillStyle = '#FFF';   // JPEG has no see-through: a transparent PNG goes on the board's white
+    g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(img, 0, 0, c.width, c.height);
+    const data = c.toDataURL('image/jpeg', 0.82);
+    URL.revokeObjectURL(img.src);
+    const shown = new Image();
+    shown.src = data;
+    placing = {img: shown, data, aspect: c.width / c.height};
+    canvas.style.cursor = 'copy';
+    status('');
+  };
+  img.src = URL.createObjectURL(file);
+}
+/** The picture's spot for a dragged box (0 to 1): as big as the box allows, keeping its shape; a click fills the board. */
+function fitBox(b) {
+  const W = canvas.width, H = canvas.height;
+  let x0 = Math.min(b[0], b[2]) * W, y0 = Math.min(b[1], b[3]) * H, bw = Math.abs(b[2] - b[0]) * W, bh = Math.abs(b[3] - b[1]) * H;
+  if (bw < 20 && bh < 20) { x0 = 0; y0 = 0; bw = W; bh = H; }
+  let w = bw, h = w / placing.aspect;
+  if (h > bh) { h = bh; w = h * placing.aspect; }
+  const x = x0 + (bw - w) / 2, y = y0 + (bh - h) / 2;
+  return {x: +(x / W).toFixed(4), y: +(y / H).toFixed(4), w: +(w / W).toFixed(4), h: +(h / H).toFixed(4)};
+}
+async function place() {
+  const r = fitBox(box), id = newId();
+  loaded[id] = placing.img;
+  const item = Object.assign({id, kind: 'image'}, r);
+  strokes.push(item);
+  const data = placing.data;
+  placing = box = null;
+  setMoving(true);   // straight into Move, holding the new picture, to adjust it
+  selected = id;
+  redraw();
+  status('Sending the picture...');
+  if (await post('image', Object.assign({data}, item))) status('');
+}
+document.addEventListener('paste', e => {
+  const file = [...e.clipboardData.files].find(f => f.type.startsWith('image/'));
+  if (file) { e.preventDefault(); choose(file); }
+});
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  const file = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (file) choose(file);
+});
+
+// MARK: - The Move tool: in canvas pixels, a corner handle resizes (keeping the shape), anywhere else on the picture moves it
+
+function selectedItem() { return selected && strokes.find(s => s.id === selected); }
+function handleSize() { return 16 * canvas.width / canvas.getBoundingClientRect().width; }
+function corners(s) {
+  const W = canvas.width, H = canvas.height;
+  return [[s.x * W, s.y * H], [(s.x + s.w) * W, s.y * H], [s.x * W, (s.y + s.h) * H], [(s.x + s.w) * W, (s.y + s.h) * H]];
+}
+function grabAt(p) {
+  const W = canvas.width, H = canvas.height, x = p[0] * W, y = p[1] * H, k = handleSize() * (KEYS ? 1 : 1.6);
+  const sel = selectedItem();
+  if (sel) {
+    const c = corners(sel);
+    for (let i = 0; i < 4; i++) {
+      if (Math.abs(x - c[i][0]) <= k && Math.abs(y - c[i][1]) <= k) {
+        return {item: sel, corner: i, anchor: c[3 - i], start: p, from: Object.assign({}, sel)};
+      }
+    }
+  }
+  for (let i = strokes.length - 1; i >= 0; i--) {   // the topmost picture under the pointer
+    const s = strokes[i];
+    if (s.kind === 'image' && p[0] >= s.x && p[0] <= s.x + s.w && p[1] >= s.y && p[1] <= s.y + s.h) {
+      return {item: s, corner: -1, start: p, from: Object.assign({}, s)};
+    }
+  }
+  return null;
+}
+function drag(p) {
+  const s = grab.item, f = grab.from, W = canvas.width, H = canvas.height;
+  if (grab.corner < 0) {
+    s.x = f.x + p[0] - grab.start[0];
+    s.y = f.y + p[1] - grab.start[1];
+  } else {
+    const aspect = (f.w * W) / (f.h * H), ax = grab.anchor[0], ay = grab.anchor[1];
+    const px = p[0] * W, py = p[1] * H;
+    const w = Math.max(Math.abs(px - ax), Math.abs(py - ay) * aspect, 40);
+    const h = w / aspect;
+    s.x = (px < ax ? ax - w : ax) / W;
+    s.y = (py < ay ? ay - h : ay) / H;
+    s.w = w / W;
+    s.h = h / H;
+  }
+  ['x', 'y', 'w', 'h'].forEach(k => { s[k] = +s[k].toFixed(4); });
+  redraw();
+  sendMove(s);
+}
+// Like the strokes: one request at a time, always with where the picture is now.
+let moveSending = false, moveNext = null;
+function sendMove(s) {
+  moveNext = {id: s.id, x: s.x, y: s.y, w: s.w, h: s.h};
+  if (moveSending) return;
+  const m = moveNext;
+  moveNext = null;
+  moveSending = true;
+  post('move', m).finally(() => { moveSending = false; if (moveNext) sendMove(Object.assign({}, moveNext)); });
+}
+function newId() { return Date.now() + '-' + Math.random().toString(36).slice(2, 7); }
+
+canvas.onpointerdown = e => {
+  canvas.setPointerCapture(e.pointerId);
+  if (moving && !placing) {
+    grab = grabAt(point(e));
+    selected = grab ? grab.item.id : null;
+    redraw();
+    return;
+  }
+  if (placing) { const p = point(e); box = [p[0], p[1], p[0], p[1]]; redraw(); return; }
+  current = {id: newId(), color: erasing ? '#FFFFFF' : color, size: erasing ? size * 4 : size, points: [point(e)]};
+  strokes.push(current);
+  queue(current, current.points[0]);
+  line(current, 0);
+};
+canvas.onpointermove = e => {
+  if (grab) { drag(point(e)); return; }
+  if (moving && !placing) {
+    const g = grabAt(point(e));
+    canvas.style.cursor = !g ? 'default' : g.corner < 0 ? 'move' : (g.corner === 0 || g.corner === 3) ? 'nwse-resize' : 'nesw-resize';
+    return;
+  }
+  if (placing && box) { const p = point(e); box[2] = p[0]; box[3] = p[1]; redraw(); return; }
+  if (!current) return;
+  const p = point(e), last = current.points[current.points.length - 1];
+  if (p[0] === last[0] && p[1] === last[1]) return;
+  current.points.push(p);
+  line(current, current.points.length - 1);
+  queue(current, p);
+};
+canvas.onpointerup = canvas.onpointercancel = () => {
+  grab = null;
+  if (placing && box) { place(); return; }
+  current = null;
+};
+
+// One request at a time, carrying every point drawn since the last one: smooth on the TV without flooding it.
+function queue(stroke, p) {
+  if (pendingStroke && pendingStroke !== stroke) flush(true);
+  pendingStroke = stroke;
+  pending.push(p);
+  flush();
+}
+function flush(now) {
+  if ((sending && !now) || !pending.length) return;
+  const s = pendingStroke;
+  const batch = {id: s.id, color: s.color, size: s.size, points: pending};
+  pending = [];
+  sending = true;
+  post('draw', batch).finally(() => { sending = false; flush(); });
+}
+
+function setVisible(on) {
+  visible = on;
+  press(shower, on);   // the one that's true now is lit
+  press(hider, !on);
+  status('');
+}
+
+document.onkeydown = e => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedItem()) {
+    e.preventDefault();
+    const id = selected;
+    strokes = strokes.filter(s => s.id !== id);
+    selected = grab = null;
+    redraw();
+    post('remove', {id});
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); }
+  else if (e.key === 'Escape' && placing) { placing = box = null; canvas.style.cursor = moving ? 'default' : ''; redraw(); status(''); }
+  else if (e.key === 'Escape' && selected) { selected = null; redraw(); }
+  else if (e.key === 'e') { setMoving(false); setEraser(!erasing); }
+  else if (e.key === 'v') setMoving(true);
+  else if (e.key === 'd') { setMoving(false); setEraser(false); }
+};
+if (!readSession()) problem = 'signin';
+status('');
+redraw();
+refresh();
+</script>
+</body>
+</html>

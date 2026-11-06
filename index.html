@@ -689,6 +689,8 @@ svg.ic--fill { fill: currentColor; stroke: none; }
 .app-icon--shopping { --c: var(--c-shopping); }
 .app-icon--todo { background: radial-gradient(130% 72% at 50% -10%, rgba(255,255,255,1), rgba(255,255,255,0) 60%), linear-gradient(180deg, #ffffff 0%, #eef0f4 55%, #dcdfe6 100%); }
 .app-icon--todo svg { filter: drop-shadow(0 1px .8px rgba(0,0,0,.14)); }
+.app-icon--board { --c: #5ac8fa; }
+.board-ink { fill: none; stroke: #ff3b30; stroke-width: 2.6; stroke-linecap: round; }
 .todo-tick { fill: var(--c-today); }
 .todo-check { fill: none; stroke: #fff; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .todo-bar { fill: #c6cad3; }
@@ -1989,6 +1991,10 @@ html:has(.dt[open]) body { overflow: hidden; }
     <span class="dock__label">To Do</span>
     <span class="dock__dot" aria-hidden="true"></span>
   </li>
+  <li class="dock__item">
+    <a class="dock__btn" href="board.html" aria-label="Whiteboard on the TV"><span class="app-icon app-icon--board"><svg viewBox="0 0 40 40" aria-hidden="true"><rect class="g-main" x="7" y="9" width="26" height="18" rx="3"/><path class="board-ink" d="M11.5 21.5c2.2-4.4 4.2-4.8 5.8-1.3s3.8 3.4 6.4-2.2c.8-1.6 1.7-2.4 2.8-2.5"/><path class="g-line" d="M16 31.5l2-4.5M24 31.5l-2-4.5"/></svg></span></a>
+    <span class="dock__label">Whiteboard</span>
+  </li>
   <li class="dock__sep" aria-hidden="true"></li>
   <li class="dock__item">
     <button class="dock__btn" data-action="clear-completed" aria-label="Clear Completed">
@@ -2211,32 +2217,9 @@ function groupByList() {
   const rank = t => { const i = state.lists.findIndex(l => l.id === t.listId); return i < 0 ? 1e6 : i; };
   state.tasks.sort((x, y) => rank(x) - rank(y) || y.priority - x.priority || x.order - y.order).forEach((t, i) => { t.order = i; });
 }
-function save() { groupByList(); try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} stampChanges(); queueSync(); sendToTV(); }
+function save() { groupByList(); try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} stampChanges(); queueSync(); }
 
-// Free My TV shows this list in its drawer: every save also sends the open tasks (and today's finished ones) to its
-// whiteboard server on this Mac (TV Customisation/free-my-tv/whiteboard/server.py), which passes them to the TV.
-// text/plain keeps it a simple request (no CORS preflight). If the server isn't running, nothing happens.
-let tvTimer = 0;
-const onMac = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints < 2;   // the TV server only exists on the Mac
-function sendToTV(now) {
-  if (!onMac) return;
-  clearTimeout(tvTimer);
-  tvTimer = 0;
-  const send = () => {
-    tvTimer = 0;
-    const today = new Date().toDateString();
-    const tasks = state.tasks
-      .filter(t => !t.done || (t.doneAt && new Date(t.doneAt).toDateString() === today))
-      .map(t => ({ id: t.id, text: t.title, done: t.done, due: t.due, priority: t.priority, listId: t.listId,
-                   steps: [t.steps.filter(s => s.done).length, t.steps.length] }));
-    const lists = state.lists.map(l => ({ id: l.id, name: l.name, colour: l.colour }));
-    fetch('http://localhost:8766/todo/sync', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ lists, tasks }), keepalive: true })
-      .catch(() => {});
-  };
-  if (now) send(); else tvTimer = setTimeout(send, 400);
-}
-// Closing the tab straight after a change: send it now rather than lose it with the timer.
-window.addEventListener('pagehide', () => { if (tvTimer) sendToTV(true); });
+// Free My TV reads the tasks straight from Supabase (tv_feed), so nothing here talks to the TV.
 
 
 // Tasks added after the app was first opened. To add more, append a batch with a new unique key.
@@ -2366,7 +2349,7 @@ function applyDoc(doc) {
   groupByList();   // the same tidy-up save() does, so it isn't seen as a new change afterwards
   if (ui.listId && !state.lists.some(l => l.id === ui.listId)) ui.listId = null;
   try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {}
-  saveMeta(); snapshotSync(); sendToTV();
+  saveMeta(); snapshotSync();
 }
 // Postgres can store keys in a different order, so compare with sorted keys
 const stable = v => Array.isArray(v) ? `[${v.map(stable).join(',')}]`
@@ -2392,6 +2375,8 @@ function keepSession(d) {
   try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch {}
 }
 async function ensureToken() {
+  // the Whiteboard page (board.html) shares this sign-in and may have refreshed it: a used refresh token is refused
+  try { const saved = JSON.parse(localStorage.getItem(SESSION_KEY)); if (saved && saved.id === session.id && saved.expires_at > session.expires_at) session = saved; } catch {}
   if (session.expires_at - Date.now() > 60e3) return;
   try { keepSession(await api('POST', '/auth/v1/token?grant_type=refresh_token', { refresh_token: session.refresh_token }, false)); }
   catch (e) { if (e.status === 400 || e.status === 401) signOut(); throw e; }
@@ -2715,7 +2700,7 @@ function renderDock() {
   const items = state.lists.map(l => ({ l, n: open.filter(t => t.listId === l.id).length }));
   const sig = JSON.stringify(items.map(({ l, n }) => [l.id, l.name, l.colour, n]));
   const dock = $1('.dock');
-  dock.style.setProperty('--dock-n', items.length + 2);
+  dock.style.setProperty('--dock-n', items.length + 3);
   const doneN = state.tasks.filter(t => t.done).length;
   dock.querySelector('[data-action="clear-completed"]').setAttribute('aria-label', `Clear Completed, ${doneN} ${doneN === 1 ? 'task' : 'tasks'}`);
   if (sig !== dockSig) {
@@ -2898,7 +2883,7 @@ $1('.search__input').addEventListener('input', e => { ui.query = e.target.value;
 /* ============================================================
    Task actions: add, tick, delete, undo, reorder, shortcuts.
    Data rules follow the old app: done/doneAt, order slots,
-   and save() (groupByList + sendToTV) after every change.
+   and save() (groupByList + sync) after every change.
    Undo works by task id, never by holding a task object, so a
    storage-sync reload between an action and Undo can't break it.
    ============================================================ */

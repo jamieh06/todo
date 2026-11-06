@@ -1,8 +1,8 @@
 // Offline support (same approach as the Planner). The page is fetched network-first so updates show up
 // straight away, with the cached copy as a fallback when there's no signal. Icons are cache-first.
 // Supabase requests are never cached: sync always talks to the live database.
-const CACHE = 'todo-v1';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
+const CACHE = 'todo-v2';
+const SHELL = ['./', './index.html', './board.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -16,11 +16,13 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET' || url.origin !== location.origin) return;
 
   if (req.mode === 'navigate') {
+    // two pages: the list and the Whiteboard, each cached under its own name
+    const page = url.pathname.endsWith('/board.html') ? './board.html' : './index.html';
     e.respondWith(fetch(req).then(res => {
       const copy = res.clone();
-      caches.open(CACHE).then(c => c.put('./index.html', copy));
+      if (res.ok) caches.open(CACHE).then(c => c.put(page, copy));
       return res;
-    }).catch(() => caches.match('./index.html')));
+    }).catch(() => caches.match(page)));
     return;
   }
 
