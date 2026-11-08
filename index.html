@@ -691,6 +691,9 @@ svg.ic--fill { fill: currentColor; stroke: none; }
 .app-icon--todo svg { filter: drop-shadow(0 1px .8px rgba(0,0,0,.14)); }
 .app-icon--board { --c: #5ac8fa; }
 .board-ink { fill: none; stroke: #ff3b30; stroke-width: 2.6; stroke-linecap: round; }
+.app-icon--photos { --c: #ff9500; }
+.photo-sun { fill: #ffcc00; }
+.photo-hill { fill: #34c759; }
 .todo-tick { fill: var(--c-today); }
 .todo-check { fill: none; stroke: #fff; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .todo-bar { fill: #c6cad3; }
@@ -1995,6 +1998,10 @@ html:has(.dt[open]) body { overflow: hidden; }
     <a class="dock__btn" href="board.html" aria-label="Whiteboard on the TV"><span class="app-icon app-icon--board"><svg viewBox="0 0 40 40" aria-hidden="true"><rect class="g-main" x="7" y="9" width="26" height="18" rx="3"/><path class="board-ink" d="M11.5 21.5c2.2-4.4 4.2-4.8 5.8-1.3s3.8 3.4 6.4-2.2c.8-1.6 1.7-2.4 2.8-2.5"/><path class="g-line" d="M16 31.5l2-4.5M24 31.5l-2-4.5"/></svg></span></a>
     <span class="dock__label">Whiteboard</span>
   </li>
+  <li class="dock__item">
+    <a class="dock__btn" href="photos.html" aria-label="Photos on the TV"><span class="app-icon app-icon--photos"><svg viewBox="0 0 40 40" aria-hidden="true"><rect class="g-main" x="7" y="9" width="26" height="22" rx="4"/><circle class="photo-sun" cx="15" cy="16.5" r="2.6"/><path class="photo-hill" d="M8.5 28.5l7.6-7.2 5 4.6 4.6-4.2 5.8 5.4v1.4z"/></svg></span></a>
+    <span class="dock__label">Photos</span>
+  </li>
   <li class="dock__sep" aria-hidden="true"></li>
   <li class="dock__item">
     <button class="dock__btn" data-action="clear-completed" aria-label="Clear Completed">
@@ -2700,7 +2707,7 @@ function renderDock() {
   const items = state.lists.map(l => ({ l, n: open.filter(t => t.listId === l.id).length }));
   const sig = JSON.stringify(items.map(({ l, n }) => [l.id, l.name, l.colour, n]));
   const dock = $1('.dock');
-  dock.style.setProperty('--dock-n', items.length + 3);
+  dock.style.setProperty('--dock-n', items.length + 4);   // + To Do, Whiteboard, Photos and the bin
   const doneN = state.tasks.filter(t => t.done).length;
   dock.querySelector('[data-action="clear-completed"]').setAttribute('aria-label', `Clear Completed, ${doneN} ${doneN === 1 ? 'task' : 'tasks'}`);
   if (sig !== dockSig) {
@@ -4383,7 +4390,7 @@ function placeBanner() {
 function showError(title, body) { showBanner(title, body); bannerEl.classList.add('is-error'); }
 
 /* ---------- Dock FLIP: icons glide aside when a list arrives or leaves ---------- */
-function dockKey(li) { return li.dataset.dockList ? 'l:' + li.dataset.dockList : li.matches('.dock__sep') ? 'sep' : li.querySelector('[data-action]')?.dataset.action || ''; }
+function dockKey(li) { return li.dataset.dockList ? 'l:' + li.dataset.dockList : li.matches('.dock__sep') ? 'sep' : li.querySelector('[data-action]')?.dataset.action || li.querySelector('a[href]')?.getAttribute('href') || ''; }
 function dockRects() { const m = new Map(); document.querySelectorAll('.dock > li').forEach(li => m.set(dockKey(li), li.getBoundingClientRect())); return m; }
 function dockFlip(before) {
   document.querySelectorAll('.dock > li').forEach(li => {

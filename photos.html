@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Photos on the TV</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+/* The To Do app's macOS Tahoe look (tahoe-design skill): blue wave wallpaper, the photos on one glass sheet, the
+   controls as Control Center modules. Tokens, base and wallpaper as on the Whiteboard page; then this page's own. */
+/* Tahoe design tokens, taken from the shipped To Do app (4 Nov 2026). Light first, dark below.
+   The --c-* list colours are that app's: swap them for your own sections. Every text colour here passes
+   4.5:1 on its glass; check again if you change a background. */
+
+:root {
+  color-scheme: light dark;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-snap: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* text over glass */
+  --text-1: rgba(0, 0, 0, .85);
+  --text-2: rgba(0, 0, 0, .66);        /* 4.5:1+ on the glass over the blue wave */
+  --text-3: rgba(0, 0, 0, .30);
+  --sep: rgba(60, 60, 67, .16);
+  --hover: rgba(0, 0, 0, .045);
+  --sel: rgba(0, 0, 0, .075);
+
+  --accent: #007aff;
+  --red: #ff3b30;
+  --orange: #ff9500;
+  /* small coloured text on glass: the same hues, deepened (light) or lifted (dark) to 4.5:1 */
+  --red-text: color-mix(in srgb, var(--red) 52%, #000);   /* 4.5:1+ on the glass, like --dt-red */
+  --accent-text: color-mix(in srgb, var(--accent) 78%, #000);
+
+  /* list + view colours */
+  --c-all: #6e6e73;
+  --c-today: #007aff;
+  --c-upcoming: #ff3b30;
+  --c-done: #8e8e93;
+  --c-uni: #5856d6;
+  --c-personal: #ff9500;
+  --c-projects: #30b0c7;
+  --c-societies: #ff2d55;
+  --c-shopping: #34c759;
+
+  /* wallpaper */
+  --wp-base: #9fb4d0;
+  --wp-sky-1: #7f9cc3;
+  --wp-sky-2: #b4c2d6;
+  --wp-sky-3: #eed8b4;
+  --wp-sky-4: #d9dbe2;
+  --wp-fold: #3577de;
+  --wp-fold-hi: #8fb9ea;
+  --wp-lip-1: #e3f1f7;
+  --wp-lip-2: #8fc3ec;
+  --wp-body-1: #2d6fe0;
+  --wp-body-2: #1a4fc6;
+  --wp-body-3: #3b7fe2;
+  --wp-core: #0f3db4;
+  --wp-glow: #6aa6ec;
+  --wp-haze: #d3deec;
+  --wp-crest: #ffffff;
+  --wp-streak: #b6def5;
+
+  /* glass: the task sheet */
+  --sheet-bg: rgba(232, 238, 249, .56);
+  --sheet-side: rgba(250, 251, 253, .62);
+  --sheet-shadow: 0 24px 60px rgba(12, 36, 92, .22), 0 2px 10px rgba(12, 36, 92, .10);
+  --rim-a: rgba(255, 255, 255, .90);
+  --rim-b: rgba(255, 255, 255, .28);
+  --field-bg: rgba(255, 255, 255, .78);
+  --round-bg: rgba(255, 255, 255, .55);
+  --tick-ring: rgba(0, 0, 0, .45);       /* 3:1 against the glass */
+  --badge-ring: rgba(244, 247, 252, .95);
+
+  /* tiles (Edit Controls) */
+  /* the Details tiles' deep blue, so white titles and the pale subtitles keep 4.5:1 over the light glass */
+  --tile-bg: linear-gradient(160deg, rgba(0, 62, 170, .74), rgba(0, 54, 156, .78));
+  --tile-text: #fff;
+  --tile-sub: #e0edff;
+  --tile-warn: #ffe6e3;
+  --tile-tick: rgba(255, 255, 255, .20);
+
+  /* Control Center */
+  --cc-bg: linear-gradient(150deg, rgba(0, 46, 150, .40), rgba(0, 40, 140, .46) 55%, rgba(0, 46, 150, .42));   /* deep blue glass: white text 4.5:1+ over the bright wave */
+  --cc-text: #fff;
+  --cc-text-2: rgba(255, 255, 255, .9);
+  --cc-blur: blur(16px) saturate(190%) brightness(.68);   /* dims a bright backdrop (the crest, the pale sky) under white text */
+  --cc-label-bg: var(--cc-bg);          /* labels sit on bare wallpaper: a small glass pill keeps them 4.5:1 over the crest (both modes) */
+  --cc-label-filter: var(--cc-blur);
+  --cc-off: rgba(255, 255, 255, .20);
+  --cc-on: rgba(255, 255, 255, .97);
+  --cc-on-fg: #1a78f2;
+  --cc-track: rgba(255, 255, 255, .30);
+  --cc-shadow: 0 8px 24px rgba(8, 40, 120, .16);
+
+  /* Dock */
+  --dock-bg: rgba(255, 255, 255, .26);
+  --dock-sep: rgba(0, 0, 0, .16);
+  --dock-dot: rgba(0, 0, 0, .55);
+  --badge-bg: rgba(255, 255, 255, .94);
+  --badge-text: rgba(0, 0, 0, .78);
+  --badge-rim: rgba(0, 0, 0, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-1: rgba(255, 255, 255, .92);
+    --text-2: rgba(255, 255, 255, .64);
+    --text-3: rgba(255, 255, 255, .34);
+    --sep: rgba(255, 255, 255, .12);
+    --hover: rgba(255, 255, 255, .06);
+    --sel: rgba(255, 255, 255, .10);
+
+    /* system blue in dark too, like refs 12-14 */
+    --accent: #0a84ff;
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --red-text: color-mix(in srgb, var(--red) 66%, #fff);
+    --accent-text: color-mix(in srgb, var(--accent) 75%, #fff);
+
+    --c-all: #98989d;
+    --c-today: #0a84ff;
+    --c-upcoming: #ff453a;
+    --c-done: #98989d;
+    --c-uni: #8e8cff;
+    --c-personal: #ff9f0a;
+    --c-projects: #40c8e0;
+    --c-societies: #ff4f74;
+    --c-shopping: #30d158;
+
+    --wp-base: #0a0f22;
+    --wp-sky-1: #070b1a;
+    --wp-sky-2: #10162e;
+    --wp-sky-3: #24203c;
+    --wp-sky-4: #161b34;
+    --wp-fold: #1a3c92;
+    --wp-fold-hi: #2f4f9c;
+    --wp-lip-1: #5d79b8;
+    --wp-lip-2: #23448f;
+    --wp-body-1: #12307f;
+    --wp-body-2: #0a1d5a;
+    --wp-body-3: #163a8c;
+    --wp-core: #050f3a;
+    --wp-glow: #22479a;
+    --wp-haze: #26294a;
+    --wp-crest: #b9ccff;
+    --wp-streak: #4a6fc0;
+
+    --sheet-bg: rgba(22, 24, 34, .46);
+    --sheet-side: rgba(36, 38, 48, .50);
+    --sheet-shadow: 0 24px 60px rgba(0, 0, 0, .45), 0 2px 10px rgba(0, 0, 0, .25);
+    --rim-a: rgba(255, 255, 255, .34);
+    --rim-b: rgba(255, 255, 255, .08);
+    --field-bg: rgba(255, 255, 255, .08);
+    --round-bg: rgba(255, 255, 255, .10);
+    --tick-ring: rgba(255, 255, 255, .42);
+    --badge-ring: rgba(30, 32, 42, .95);
+
+    --tile-bg: linear-gradient(160deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .07));
+    --tile-text: rgba(255, 255, 255, .94);
+    --tile-sub: #8cc8ff;                 /* blue, not amber: one accent in both modes */
+    --tile-warn: #ffaaa4;
+    --tile-tick: rgba(255, 255, 255, .10);
+
+    --cc-bg: linear-gradient(150deg, rgba(40, 44, 62, .42), rgba(22, 24, 36, .30) 55%, rgba(34, 38, 56, .38));
+    --cc-text: rgba(255, 255, 255, .94);
+    --cc-text-2: rgba(255, 255, 255, .72);
+    --cc-blur: blur(16px) saturate(190%);
+    --cc-off: rgba(255, 255, 255, .11);
+    --cc-on: rgba(255, 255, 255, .92);
+    --cc-on-fg: #0a84ff;                 /* on toggles: white disc, system blue glyph (was orange) */
+    --cc-track: rgba(255, 255, 255, .16);
+    --cc-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+
+    --dock-bg: rgba(26, 28, 40, .40);
+    --dock-sep: rgba(255, 255, 255, .16);
+    --dock-dot: rgba(255, 255, 255, .6);
+    --badge-bg: rgba(64, 66, 80, .96);
+    --badge-text: rgba(255, 255, 255, .92);
+    --badge-rim: rgba(255, 255, 255, .22);
+  }
+}
+
+:root {
+  --accent-fill: color-mix(in srgb, var(--accent) 86%, #000);   /* white text on it stays above 4.5:1 */
+}
+@media (prefers-color-scheme: dark) {
+  :root { --accent-fill: color-mix(in srgb, var(--accent) 80%, #000); }
+}
+
+/* ---------- base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--text-1);
+  background: var(--wp-base);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button, input { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: default; -webkit-tap-highlight-color: transparent; }
+svg.ic { width: 1em; height: 1em; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* shared Liquid Glass rim: bright top-left and bottom-right, dim sides */
+.rim { position: relative; }
+.rim::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--rim-a) 0%, var(--rim-b) 28%, rgba(255,255,255,0) 50%, var(--rim-b) 72%, var(--rim-a) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ---------- wallpaper ---------- */
+.wallpaper { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.wallpaper svg { width: 100%; height: 100%; display: block; }
+.wp-s1 { stop-color: var(--wp-sky-1); }
+.wp-s2 { stop-color: var(--wp-sky-2); }
+.wp-s3 { stop-color: var(--wp-sky-3); }
+.wp-s4 { stop-color: var(--wp-sky-4); }
+.wp-b0 { stop-color: var(--wp-lip-1); }
+.wp-b1 { stop-color: var(--wp-lip-2); }
+.wp-b2 { stop-color: var(--wp-body-1); }
+.wp-b3 { stop-color: var(--wp-body-2); }
+.wp-b4 { stop-color: var(--wp-body-3); }
+.wp-fold { fill: var(--wp-fold); }
+.wp-fold-hi { fill: var(--wp-fold-hi); }
+.wp-core { fill: var(--wp-core); }
+.wp-glow { fill: var(--wp-glow); }
+.wp-haze { fill: var(--wp-haze); }
+.wp-crest { stroke: var(--wp-crest); fill: none; }
+.wp-streak { stroke: var(--wp-streak); fill: none; }
+.wp-lip { stroke: var(--wp-lip-1); fill: none; }
+/* ---------- the page: one glass sheet (the photos), Control Center modules above it ---------- */
+.desktop { position: relative; z-index: 1; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column;
+  align-items: center; gap: 18px; padding: max(24px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom)); }
+body { overflow-x: hidden; overflow-y: auto; }
+.cc { width: 100%; max-width: 760px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; color: var(--cc-text); }
+.cc-mod {
+  background: var(--cc-bg);
+  -webkit-backdrop-filter: var(--cc-blur);
+  backdrop-filter: var(--cc-blur);
+  box-shadow: var(--cc-shadow), inset 0 0 16px rgba(255,255,255,.14);
+  transition: transform 160ms var(--ease-snap), background-color 180ms var(--ease-snap);
+}
+.cc-mod:active { transform: scale(.97); }
+.cc-mod.rim::after { padding: 1.2px; background: linear-gradient(135deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.35) 26%, rgba(255,255,255,.10) 50%, rgba(255,255,255,.35) 74%, rgba(255,255,255,.9) 100%); }
+@media (prefers-color-scheme: dark) {
+  .cc-mod.rim::after { background: linear-gradient(135deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,.12) 26%, rgba(255,255,255,.04) 50%, rgba(255,255,255,.12) 74%, rgba(255,255,255,.4) 100%); }
+}
+.cc-pill {
+  height: 63px; border-radius: 999px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px 0 10px;
+  text-align: left; text-decoration: none; color: inherit;
+}
+.cc-pill__icon {
+  width: 42px; height: 42px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--cc-off);
+  font-size: 20px;
+  box-shadow: inset 0 .5px 0 rgba(255,255,255,.35);
+}
+.cc-pill.is-on .cc-pill__icon { background: var(--cc-on); color: var(--cc-on-fg); }
+.cc-pill__title { min-width: 0; font-size: 14px; font-weight: 600; line-height: 17px; }
+.cc-pill__sub { display: block; font-size: 12px; font-weight: 500; color: var(--cc-text-2); }
+.cc-pill[aria-disabled="true"] { opacity: .6; }
+
+.sheet {
+  width: 100%; max-width: 760px;
+  padding: 18px 16px 16px;
+  border-radius: 28px;
+  background: var(--sheet-bg);
+  -webkit-backdrop-filter: blur(34px) saturate(165%);
+  backdrop-filter: blur(34px) saturate(165%);
+  box-shadow: var(--sheet-shadow), inset 0 0 0 .5px rgba(255,255,255,.18);
+}
+.sheet h1 { margin: 0 2px; font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: -.2px; }
+.sub { margin: 4px 2px 0; font-size: 13px; line-height: 18px; color: var(--text-2); text-wrap: pretty; }
+#status { min-height: 18px; margin: 10px 2px 12px; font-size: 13px; line-height: 18px; color: var(--text-2); }
+#status.is-bad { color: var(--red-text); }
+#status a { color: var(--accent-text); font-weight: 600; }
+.bar { height: 4px; margin: -6px 2px 12px; border-radius: 2px; background: var(--sep); overflow: hidden; display: none; }
+.bar.is-on { display: block; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 240ms var(--ease-snap); }
+
+/* the photos: 16:9 tiles, as the TV shows them, newest first */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+@media (max-width: 420px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tile { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: var(--sel);
+  box-shadow: 0 0 0 .5px var(--sep), 0 1px 4px rgba(12, 36, 92, .10); }
+.tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tile.is-new::before { content: "New"; position: absolute; left: 8px; top: 8px; padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; color: #fff; background: rgba(0, 0, 0, .5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.tile.is-going { opacity: .4; }
+/* delete: a small dark glass circle, drawn at 28 px inside a 44 px hit area in the corner */
+.del { position: absolute; right: 0; top: 0; width: 44px; height: 44px; display: grid; place-items: center; }
+.del span { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; color: #fff;
+  background: rgba(0, 0, 0, .52); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.4); }
+.del:active span { transform: scale(.94); }
+.empty { padding: 34px 12px 30px; text-align: center; color: var(--text-2); font-size: 14px; line-height: 20px; }
+.empty svg { width: 40px; height: 40px; margin: 0 auto 8px; color: var(--text-3); }
+
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 2px; }
+.cc :focus-visible { outline-color: var(--cc-on); }
+@media (prefers-reduced-transparency: reduce) {
+  .sheet, .cc-mod { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .sheet { background: rgba(246, 246, 248, .97); }
+  .cc-mod { background: rgb(30, 74, 168); }
+}
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  .sheet { background: rgba(40, 40, 44, .97); }
+  .cc-mod { background: rgba(48, 48, 56, .96); }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sheet { background: rgba(246, 246, 248, .96); }
+  .cc-mod { background: rgb(30, 74, 168); }
+  @media (prefers-color-scheme: dark) { .sheet { background: rgba(40, 40, 44, .97); } .cc-mod { background: rgba(48, 48, 56, .96); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 150ms !important; transition-property: opacity !important; }
+}
+</style>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-photo" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="3"></rect><circle cx="9" cy="10" r="1.6"></circle><path d="M4 17l4.8-4.6 3.4 3.2 3-2.8 4.8 4.4"></path></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"></path></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"></path></symbol>
+</svg>
+
+<div class="wallpaper" aria-hidden="true">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="wpSky" x1="0" y1="0" x2=".2" y2="1">
+        <stop offset="0" class="wp-s1"></stop>
+        <stop offset=".28" class="wp-s2"></stop>
+        <stop offset=".50" class="wp-s3"></stop>
+        <stop offset="1" class="wp-s4"></stop>
+      </linearGradient>
+      <linearGradient id="wpBody" x1=".18" y1=".05" x2=".72" y2="1">
+        <stop offset="0" class="wp-b0"></stop>
+        <stop offset=".12" class="wp-b1"></stop>
+        <stop offset=".30" class="wp-b2"></stop>
+        <stop offset=".62" class="wp-b3"></stop>
+        <stop offset="1" class="wp-b4"></stop>
+      </linearGradient>
+      <filter id="blurXL" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="60"></feGaussianBlur></filter>
+      <filter id="blurL" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="34"></feGaussianBlur></filter>
+      <filter id="blurM" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"></feGaussianBlur></filter>
+      <filter id="blurS" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"></feGaussianBlur></filter>
+      <filter id="blurXS" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.1"></feGaussianBlur></filter>
+      <clipPath id="wpWaveClip"><path d="M-40 790 C 230 610, 520 330, 800 175 C 960 88, 1080 34, 1220 -20 L 1500 -20 L 1500 940 L -40 940 Z"></path></clipPath>
+    </defs>
+
+    <!-- sky: blue-grey top, warm beige middle -->
+    <rect width="1440" height="900" fill="url(#wpSky)"></rect>
+    <!-- the blue fold on the left, above the main crest -->
+    <path class="wp-fold" filter="url(#blurL)" opacity=".9" d="M-80 530 C 90 490, 300 510, 480 610 C 360 680, 160 700, -80 740 Z"></path>
+    <path class="wp-fold-hi" filter="url(#blurM)" opacity=".7" d="M-60 512 C 120 478, 270 492, 420 562 C 300 576, 120 578, -60 598 Z"></path>
+
+    <!-- the main wave body -->
+    <g clip-path="url(#wpWaveClip)">
+      <rect width="1440" height="900" fill="url(#wpBody)"></rect>
+      <ellipse class="wp-core" filter="url(#blurXL)" opacity=".75" cx="1040" cy="560" rx="420" ry="150" transform="rotate(-26 1040 560)"></ellipse>
+      <ellipse class="wp-glow" filter="url(#blurXL)" opacity=".75" cx="720" cy="800" rx="420" ry="140" transform="rotate(-14 720 800)"></ellipse>
+      <ellipse class="wp-haze" filter="url(#blurXL)" opacity=".9" cx="1420" cy="860" rx="300" ry="230"></ellipse>
+      <!-- ribbons inside the curl -->
+      <path class="wp-streak" filter="url(#blurM)" opacity=".55" stroke-width="46" d="M360 760 C 600 560, 860 360, 1260 250"></path>
+      <path class="wp-streak" filter="url(#blurS)" opacity=".45" stroke-width="10" d="M230 820 C 480 620, 760 420, 1140 300 C 1260 262, 1360 250, 1480 250"></path>
+      <path class="wp-streak" filter="url(#blurS)" opacity=".35" stroke-width="7" d="M520 820 C 760 640, 1000 520, 1480 430"></path>
+      <!-- the translucent lip just under the crest -->
+      <path class="wp-lip" filter="url(#blurM)" opacity=".6" stroke-width="44" d="M-40 818 C 230 638, 520 358, 800 203 C 960 116, 1080 62, 1240 8"></path>
+      <path class="wp-crest" filter="url(#blurS)" opacity=".42" stroke-width="4" d="M-30 822 C 240 642, 530 362, 810 206 C 970 118, 1090 64, 1240 11"></path>
+      <path class="wp-crest" filter="url(#blurS)" opacity=".28" stroke-width="3" d="M-20 860 C 250 676, 545 392, 822 236 C 982 146, 1100 92, 1250 40"></path>
+    </g>
+    <!-- the bright specular crest line -->
+    <path class="wp-crest" filter="url(#blurM)" opacity=".55" stroke-width="16" d="M-40 790 C 230 610, 520 330, 800 175 C 960 88, 1080 34, 1220 -20"></path>
+    <path class="wp-crest" filter="url(#blurXS)" opacity=".95" stroke-width="2.6" d="M-40 790 C 230 610, 520 330, 800 175 C 960 88, 1080 34, 1220 -20"></path>
+  </svg>
+</div>
+
+<main class="desktop">
+  <div class="cc" aria-label="Controls">
+    <label class="cc-mod rim cc-pill is-on" id="add" role="button" tabindex="0" aria-label="Add photos">
+      <span class="cc-pill__icon" aria-hidden="true"><svg class="ic"><use href="#i-plus"></use></svg></span>
+      <span class="cc-pill__title">Add photos</span>
+      <input id="pick" class="visually-hidden" type="file" accept="image/*" multiple tabindex="-1">
+    </label>
+    <a class="cc-mod rim cc-pill" href="./" aria-label="Back to To Do">
+      <span class="cc-pill__icon" aria-hidden="true"><svg class="ic"><use href="#i-back"></use></svg></span>
+      <span class="cc-pill__title">To Do</span>
+    </a>
+  </div>
+
+  <section class="sheet rim" aria-labelledby="h">
+    <h1 id="h">Photos on the TV</h1>
+    <p class="sub">They show on the TV's screensaver. On the TV, Home Settings → Screensaver picks Shows, My Photos or Both.</p>
+    <div id="status" role="status" aria-live="polite"></div>
+    <div class="bar" id="bar"><i></i></div>
+    <div class="grid" id="grid"></div>
+  </section>
+</main>
+
+<script>
+/* Photo drop: photos for the TV's screensaver (Free My TV on the LG). They're made TV-sized here (1920 px at most,
+   JPEG; portrait ones on a soft blurred fill, so the TV doesn't crop them) and go to the private tv-photos bucket of
+   this app's Supabase project, in a folder of their own. The TV gets signed links to them from the tv-photos function
+   with its own key. It uses the To Do app's sign-in (same site, same saved session): sign in there once under
+   Edit Lists → Sync. */
+const SUPABASE_URL = 'https://ajgymyqgthxaiqoniwbe.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_5JI6nVkFUSISlmX1dntU8Q_QTJUGxR5';
+const SESSION_KEY = 'todo.session';
+const BUCKET = 'tv-photos';
+const W = 1920, H = 1080, SMALL = 384, FRESH = 48 * 3600e3;
+const $ = (id) => document.getElementById(id);
+const grid = $('grid'), statusLine = $('status'), bar = $('bar');
+let photos = [];   // [{id, small (a signed link)}], newest first
+let busy = false;
+
+// MARK: - Supabase, signed in as the To Do app is
+
+function readSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
+class SignIn extends Error {}
+let refreshing = null;
+async function accessToken() {
+  const s = readSession();   // the To Do app may have refreshed it since: always the newest
+  if (!s) throw new SignIn();
+  if (s.expires_at - Date.now() > 60e3) return s.access_token;
+  if (!refreshing) refreshing = (async () => {
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {method: 'POST',
+      headers: {apikey: SUPABASE_KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({refresh_token: s.refresh_token})});
+    const d = await r.json().catch(() => null);
+    if (!r.ok) {
+      if (r.status === 400 || r.status === 401) { try { localStorage.removeItem(SESSION_KEY); } catch {} throw new SignIn(); }
+      throw new Error('net');
+    }
+    const next = {access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Date.now() + d.expires_in * 1000,
+                  email: d.user.email, id: d.user.id};
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(next)); } catch {}   // shared with the To Do app
+    return next.access_token;
+  })().finally(() => { refreshing = null; });
+  return refreshing;
+}
+function me() { const s = readSession(); if (!s || !s.id) throw new SignIn(); return s.id; }
+
+/** A Storage call: JSON in and out, or a picture (body: a Blob). */
+async function storage(method, path, body) {
+  const headers = {apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken()};
+  if (body instanceof Blob) { headers['Content-Type'] = 'image/jpeg'; headers['x-upsert'] = 'false'; }
+  else if (body) headers['Content-Type'] = 'application/json';
+  const r = await fetch(SUPABASE_URL + '/storage/v1' + path, {method, headers,
+    body: body instanceof Blob ? body : body && JSON.stringify(body)});
+  const text = await r.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch {}
+  if (r.status === 401 || (data && /jwt|token/i.test(data.message || '') && r.status === 400)) throw new SignIn();
+  if (!r.ok) throw new Error((data && (data.message || data.error)) || 'net');
+  return data;
+}
+
+// MARK: - The list
+
+async function load() {
+  const uid = me();
+  const files = await storage('POST', `/object/list/${BUCKET}`, {prefix: uid, limit: 1000, offset: 0, sortBy: {column: 'name', order: 'desc'}}) || [];
+  const names = new Set(files.map((f) => f.name));
+  const ids = files.map((f) => f.name).filter((n) => /^\d{13}-[a-z0-9]{6}\.jpg$/.test(n)).map((n) => n.slice(0, -4));
+  // an upload cut off halfway left one file without the other: tidied away (the TV never shows those)
+  // (only ones over ten minutes old: another phone may be halfway through sending it)
+  const half = files.map((f) => f.name).filter((n) => /^\d{13}-/.test(n) && Date.now() - Number(n.slice(0, 13)) > 600e3 &&
+    (/\.s\.jpg$/.test(n) ? !names.has(n.replace('.s.jpg', '.jpg')) : !names.has(n.replace('.jpg', '.s.jpg'))));
+  if (half.length && !busy) storage('DELETE', `/object/${BUCKET}`, {prefixes: half.map((n) => `${uid}/${n}`)}).catch(() => {});
+  const whole = ids.filter((id) => names.has(id + '.s.jpg'));
+  const signed = whole.length ? await storage('POST', `/object/sign/${BUCKET}`, {expiresIn: 3600, paths: whole.map((id) => `${uid}/${id}.s.jpg`)}) : [];
+  const link = {};
+  for (const s of signed || []) if (s.signedURL) link[s.path] = SUPABASE_URL + '/storage/v1' + s.signedURL;
+  photos = whole.map((id) => ({id, small: link[`${uid}/${id}.s.jpg`] || ''}));
+  render();
+}
+
+function render() {
+  grid.replaceChildren();
+  if (!photos.length) {
+    const e = document.createElement('div');
+    e.className = 'empty';
+    e.style.gridColumn = '1 / -1';
+    e.innerHTML = '<svg class="ic"><use href="#i-photo"></use></svg>No photos yet. Add some and they\'ll be on the TV\'s screensaver within five minutes.';
+    grid.append(e);
+  }
+  for (const p of photos) {
+    const tile = document.createElement('figure'), img = new Image(), del = document.createElement('button');
+    tile.className = 'tile' + (Date.now() - Number(p.id.slice(0, 13)) < FRESH ? ' is-new' : '');
+    tile.style.margin = '0';
+    img.alt = 'Sent ' + new Date(Number(p.id.slice(0, 13))).toLocaleString('en-GB', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.src = p.small;
+    del.className = 'del';
+    del.setAttribute('aria-label', 'Delete this photo (' + img.alt + ')');
+    del.innerHTML = '<span><svg class="ic"><use href="#i-x"></use></svg></span>';
+    del.onclick = () => remove(p, tile);
+    tile.append(img, del);
+    grid.append(tile);
+  }
+  if (!busy) say(photos.length ? `${photos.length} photo${photos.length === 1 ? '' : 's'}. New ones show first on the TV, then the rest shuffled.` : '');
+}
+
+async function remove(p, tile) {
+  if (busy || tile.classList.contains('is-going') || !confirm('Delete this photo from the TV?')) return;
+  tile.classList.add('is-going');
+  try {
+    const uid = me();
+    await storage('DELETE', `/object/${BUCKET}`, {prefixes: [`${uid}/${p.id}.jpg`, `${uid}/${p.id}.s.jpg`]});
+    photos = photos.filter((x) => x !== p);
+    render();
+  } catch (e) { tile.classList.remove('is-going'); trouble(e); }
+}
+
+// MARK: - Sending: each photo made TV-sized here first
+
+/** The picture, upright (the camera's rotation applied), as something a canvas can draw. */
+async function decode(file) {
+  if (window.createImageBitmap) {
+    try { return await createImageBitmap(file, {imageOrientation: 'from-image'}); } catch {}
+  }
+  const url = URL.createObjectURL(file), img = new Image();
+  try {
+    img.src = url;
+    await img.decode();
+    return img;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+function blob(canvas, quality) {
+  return new Promise((ok, no) => canvas.toBlob((b) => b ? ok(b) : no(new Error('picture')), 'image/jpeg', quality));
+}
+
+/** {big, small}: a wide photo at most 1920 px wide as it is; a tall or square one fitted into 1920 × 1080 over a soft,
+ *  darker blur of itself, as the TV would otherwise crop it to a strip. */
+async function make(file) {
+  const pic = await decode(file), w = pic.width, h = pic.height;
+  if (!w || !h) throw new Error('picture');
+  const big = document.createElement('canvas'), cx = big.getContext('2d');
+  cx.imageSmoothingQuality = 'high';
+  if (w / h >= 1.3) {
+    const s = Math.min(1, W / w, 1600 / h);   // panoramas stay at most 1920 wide; nothing taller than needed
+    big.width = Math.round(w * s); big.height = Math.round(h * s);
+    cx.drawImage(pic, 0, 0, big.width, big.height);
+  } else {
+    big.width = W; big.height = H;
+    // the fill: the photo covering the frame, shrunk to a few dozen pixels and grown back (a blur any browser does)
+    const tiny = document.createElement('canvas'), mid = document.createElement('canvas');
+    tiny.width = 32; tiny.height = 18; mid.width = 192; mid.height = 108;
+    const cover = Math.max(W / w, H / h), cw = w * cover, ch = h * cover;
+    tiny.getContext('2d').drawImage(pic, (W - cw) / 2 * 32 / W, (H - ch) / 2 * 18 / H, cw * 32 / W, ch * 18 / H);
+    mid.getContext('2d').drawImage(tiny, 0, 0, 192, 108);
+    cx.drawImage(mid, 0, 0, W, H);
+    cx.fillStyle = 'rgba(0, 0, 0, .28)';
+    cx.fillRect(0, 0, W, H);
+    const fit = Math.min(W / w, H / h), fw = Math.round(w * fit), fh = Math.round(h * fit);
+    cx.drawImage(pic, Math.round((W - fw) / 2), Math.round((H - fh) / 2), fw, fh);
+  }
+  if (pic.close) pic.close();
+  const small = document.createElement('canvas');
+  small.width = SMALL; small.height = Math.round(SMALL * big.height / big.width);
+  const sx = small.getContext('2d');
+  sx.imageSmoothingQuality = 'high';
+  sx.drawImage(big, 0, 0, small.width, small.height);
+  return {big: await blob(big, 0.85), small: await blob(small, 0.8)};
+}
+
+function newId() {
+  const abc = 'abcdefghijklmnopqrstuvwxyz0123456789', r = crypto.getRandomValues(new Uint8Array(6));
+  return Date.now() + '-' + Array.from(r, (b) => abc[b % abc.length]).join('');
+}
+
+async function send(files) {
+  files = files.filter((f) => /^image\//.test(f.type) || /\.(heic|heif|jpe?g|png|webp)$/i.test(f.name));
+  if (!files.length || busy) return;
+  busy = true;
+  $('add').setAttribute('aria-disabled', 'true');
+  bar.classList.add('is-on');
+  let done = 0, failed = 0;
+  try {
+    const uid = me();
+    for (const f of files) {
+      say(`Sending ${done + failed + 1} of ${files.length}…`);
+      bar.firstChild.style.width = (100 * (done + failed) / files.length) + '%';
+      let made;
+      try { made = await make(f); } catch { failed++; continue; }
+      const id = newId();
+      await storage('POST', `/object/${BUCKET}/${uid}/${id}.jpg`, made.big);
+      try { await storage('POST', `/object/${BUCKET}/${uid}/${id}.s.jpg`, made.small); }
+      catch (e) { await storage('DELETE', `/object/${BUCKET}`, {prefixes: [`${uid}/${id}.jpg`]}).catch(() => {}); throw e; }
+      done++;
+    }
+    bar.firstChild.style.width = '100%';
+  } catch (e) {
+    trouble(e);
+  } finally {
+    busy = false;
+    $('add').removeAttribute('aria-disabled');
+    setTimeout(() => { bar.classList.remove('is-on'); bar.firstChild.style.width = '0'; }, 400);
+  }
+  if (done || !statusLine.classList.contains('is-bad')) {
+    await load().catch(trouble);
+    if (done) say(`Sent ${done} photo${done === 1 ? '' : 's'}${failed ? `, ${failed} couldn't be read` : ''}. The TV picks ${done === 1 ? 'it' : 'them'} up within five minutes.`);
+    else if (failed) say(`${failed === 1 ? 'That photo' : 'Those photos'} couldn't be read. Try a JPEG or a PNG.`, true);
+  }
+}
+
+// MARK: - Status
+
+function say(text, bad) {
+  statusLine.textContent = text;
+  statusLine.classList.toggle('is-bad', !!bad);
+}
+function trouble(e) {
+  if (e instanceof SignIn) {
+    statusLine.innerHTML = 'Sign in first: in To Do, Edit Lists → Sync. <a href="./">Open To Do</a>';
+    statusLine.classList.add('is-bad');
+    photos = [];
+    grid.replaceChildren();
+    return;
+  }
+  say(/payload|too large|size/i.test(e.message) ? 'That photo is too big even after resizing.'
+    : navigator.onLine ? 'Couldn\'t reach the photos. Try again in a moment.' : 'Offline: photos can\'t be sent right now.', true);
+}
+
+$('pick').addEventListener('change', (e) => { const f = Array.from(e.target.files || []); e.target.value = ''; send(f); });
+$('add').addEventListener('click', (e) => { if (busy) e.preventDefault(); });
+$('add').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && !busy) { e.preventDefault(); $('pick').click(); } });
+// a computer: photos can be dropped anywhere on the page
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('drop', (e) => { e.preventDefault(); send(Array.from(e.dataTransfer.files || [])); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !busy) load().catch(trouble); });
+load().catch(trouble);
+</script>
+</body>
+</html>
