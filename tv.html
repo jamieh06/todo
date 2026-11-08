@@ -185,9 +185,9 @@
     --badge-rim: rgba(255, 255, 255, .22);
   }
 }
-:root { --accent-fill: color-mix(in srgb, var(--accent) 86%, #000); --star: color-mix(in srgb, var(--orange) 70%, #000); }
+:root { --accent-fill: color-mix(in srgb, var(--accent) 86%, #000); }
 @media (prefers-color-scheme: dark) {
-  :root { --accent-fill: color-mix(in srgb, var(--accent) 80%, #000); --star: var(--orange); }
+  :root { --accent-fill: color-mix(in srgb, var(--accent) 80%, #000); }
 }
 
 /* ---------- base ---------- */
@@ -311,10 +311,7 @@ svg.ic { width: 1em; height: 1em; display: block; fill: none; stroke: currentCol
 .row__ep { font-size: 12px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .row__name { display: block; font-size: 14px; font-weight: 500; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row__meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12px; line-height: 16px; color: var(--text-2); }
-.stars { display: inline-flex; gap: 1px; color: var(--star); font-size: 11px; }
-.stars .ic { fill: currentColor; stroke: none; }
-.stars .ic.is-empty { fill: none; stroke: currentColor; stroke-width: 1.6; opacity: .55; }
-/* what to give it on Series Graph, which rates out of 10 */
+/* the score out of 10, to give it on Series Graph too */
 .row__sg {
   font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
   color: var(--accent-text);
@@ -701,7 +698,7 @@ const glass = (() => {
 </script>
 <script>
 /* TV Ratings. Free My TV on the LG and Samsung asks, after 20 minutes in a streaming app, which episode was on and
-   how many stars it gets, and saves that to Supabase (public.tv_rating; app time goes to public.tv_watch). This page
+   what it scores out of 10, and saves that to Supabase (public.tv_rating; app time goes to public.tv_watch). This page
    lists those ratings, each linked to the episode on Series Graph, which has no API: open it, rate it there, tick it
    here. It uses the To Do app's sign-in (same site, same saved session), so sign in there once under Edit Lists → Sync.
    The ticks stay in this browser (localStorage), not in the database. */
@@ -709,7 +706,7 @@ const SUPABASE_URL = 'https://ajgymyqgthxaiqoniwbe.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_5JI6nVkFUSISlmX1dntU8Q_QTJUGxR5';
 const SESSION_KEY = 'todo.session';
 const COPIED_KEY = 'todo.tvCopied', HIDE_KEY = 'todo.tvHideCopied';
-const HINT = 'Open an episode to rate it on Series Graph (out of 10: the blue number), then tick it here.';
+const HINT = 'Open an episode to give it the same score on Series Graph, then tick it here.';
 
 let ratings = [], watches = null, problem = '';
 const copied = new Set(load(COPIED_KEY, []));
@@ -763,7 +760,7 @@ async function refresh() {
   loading = true;
   try {
     const [r, w] = await Promise.all([
-      api('/rest/v1/tv_rating?select=id,tmdb_id,show_name,season,episode,episode_name,stars,rated_at&order=rated_at.desc&limit=2000'),
+      api('/rest/v1/tv_rating?select=id,tmdb_id,show_name,season,episode,episode_name,score,rated_at&order=rated_at.desc&limit=2000'),
       api('/rest/v1/tv_watch?select=app_id,app_title,minutes&started_at=gte.' + encodeURIComponent(weekStart().toISOString()) + '&limit=5000'),
     ]);
     ratings = r || []; watches = w || [];
@@ -796,11 +793,8 @@ function when(iso) {
 }
 const minutes = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
 
-function stars(n) {
-  let out = '';
-  for (let i = 1; i <= 5; i++) out += `<svg class="ic${i > n ? ' is-empty' : ''}"><use href="#i-star"></use></svg>`;
-  return `<span class="stars" role="img" aria-label="${n} of 5 stars">${out}</span>`;
-}
+// score is numeric(3,1), 0.0 to 10.0: always shown with one decimal
+const score = r => Number(r.score).toFixed(1);
 
 // One rating per episode, the newest (Series Graph keeps one per episode too), grouped by show, newest show first
 function shows() {
@@ -830,7 +824,7 @@ function render() {
   if (problem === 'signin') { list.innerHTML = ''; renderWeek(); return; }
   const visible = groups.map(g => hideCopied ? g.filter(r => !copied.has(r.id)) : g).filter(g => g.length);
   if (!all.length && !problem) {
-    list.innerHTML = `<div class="empty card rim"><strong>No ratings yet</strong>After 20 minutes in a streaming app, Free My TV asks which episode was on and how many stars it gets. Those show up here.</div>`;
+    list.innerHTML = `<div class="empty card rim"><strong>No ratings yet</strong>After 20 minutes in a streaming app, Free My TV asks which episode was on and what it scores out of 10. Those show up here.</div>`;
   } else if (!visible.length && all.length) {
     list.innerHTML = `<div class="empty card rim"><strong>All copied</strong>Every rating is on Series Graph. Turn off Hide Copied to see them again.</div>`;
   } else {
@@ -850,11 +844,11 @@ function row(r) {
   const on = copied.has(r.id), name = r.episode_name || `Episode ${r.episode}`;
   return `<li class="row${on ? ' is-copied' : ''}">
     <a class="row__main" href="${esc(episodeUrl(r))}" target="_blank" rel="noopener"
-       aria-label="${esc(`${r.show_name} season ${r.season} episode ${r.episode}, ${name}: ${r.stars} of 5 stars, ${r.stars * 2} out of 10 on Series Graph. Opens Series Graph.`)}">
+       aria-label="${esc(`${r.show_name} season ${r.season} episode ${r.episode}, ${name}: ${score(r)} out of 10. Opens Series Graph.`)}">
       <span class="row__ep" aria-hidden="true">S${r.season} · E${r.episode}</span>
       <span aria-hidden="true"><span class="row__name">${esc(name)}</span>
-        <span class="row__meta">${stars(r.stars)}<span>${esc(when(r.rated_at))}</span></span></span>
-      <span class="row__sg" aria-hidden="true" title="Give it ${r.stars * 2} out of 10 on Series Graph">${r.stars * 2}/10</span>
+        <span class="row__meta">${esc(when(r.rated_at))}</span></span>
+      <span class="row__sg" aria-hidden="true">${score(r)}/10</span>
     </a>
     <button class="tick" data-id="${r.id}" aria-pressed="${on}" aria-label="Copied to Series Graph: ${esc(name)}"><span class="tick__ring"><svg class="ic"><use href="#i-check"></use></svg></span></button>
   </li>`;
