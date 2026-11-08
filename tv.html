@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>TV Ratings</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+/* The To Do app's macOS Tahoe look (tahoe-design skill): blue wave wallpaper, the ratings on one glass sheet,
+   the summary as Control Center modules. Tokens first, then wallpaper, sheet, Control Center, layouts, fallbacks. */
+/* Tahoe design tokens, taken from the shipped To Do app (4 Nov 2026). Light first, dark below.
+   The --c-* list colours are that app's: swap them for your own sections. Every text colour here passes
+   4.5:1 on its glass; check again if you change a background. */
+
+:root {
+  color-scheme: light dark;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-snap: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* text over glass */
+  --text-1: rgba(0, 0, 0, .85);
+  --text-2: rgba(0, 0, 0, .66);        /* 4.5:1+ on the glass over the blue wave */
+  --text-3: rgba(0, 0, 0, .30);
+  --sep: rgba(60, 60, 67, .16);
+  --hover: rgba(0, 0, 0, .045);
+  --sel: rgba(0, 0, 0, .075);
+
+  --accent: #007aff;
+  --red: #ff3b30;
+  --orange: #ff9500;
+  /* small coloured text on glass: the same hues, deepened (light) or lifted (dark) to 4.5:1 */
+  --red-text: color-mix(in srgb, var(--red) 52%, #000);   /* 4.5:1+ on the glass, like --dt-red */
+  --accent-text: color-mix(in srgb, var(--accent) 78%, #000);
+
+  /* list + view colours */
+  --c-all: #6e6e73;
+  --c-today: #007aff;
+  --c-upcoming: #ff3b30;
+  --c-done: #8e8e93;
+  --c-uni: #5856d6;
+  --c-personal: #ff9500;
+  --c-projects: #30b0c7;
+  --c-societies: #ff2d55;
+  --c-shopping: #34c759;
+
+  /* wallpaper */
+  --wp-base: #9fb4d0;
+  --wp-sky-1: #7f9cc3;
+  --wp-sky-2: #b4c2d6;
+  --wp-sky-3: #eed8b4;
+  --wp-sky-4: #d9dbe2;
+  --wp-fold: #3577de;
+  --wp-fold-hi: #8fb9ea;
+  --wp-lip-1: #e3f1f7;
+  --wp-lip-2: #8fc3ec;
+  --wp-body-1: #2d6fe0;
+  --wp-body-2: #1a4fc6;
+  --wp-body-3: #3b7fe2;
+  --wp-core: #0f3db4;
+  --wp-glow: #6aa6ec;
+  --wp-haze: #d3deec;
+  --wp-crest: #ffffff;
+  --wp-streak: #b6def5;
+
+  /* glass: the task sheet */
+  --sheet-bg: rgba(232, 238, 249, .56);
+  --sheet-side: rgba(250, 251, 253, .62);
+  --sheet-shadow: 0 24px 60px rgba(12, 36, 92, .22), 0 2px 10px rgba(12, 36, 92, .10);
+  --rim-a: rgba(255, 255, 255, .90);
+  --rim-b: rgba(255, 255, 255, .28);
+  --field-bg: rgba(255, 255, 255, .78);
+  --round-bg: rgba(255, 255, 255, .55);
+  --tick-ring: rgba(0, 0, 0, .45);       /* 3:1 against the glass */
+  --badge-ring: rgba(244, 247, 252, .95);
+
+  /* tiles (Edit Controls) */
+  /* the Details tiles' deep blue, so white titles and the pale subtitles keep 4.5:1 over the light glass */
+  --tile-bg: linear-gradient(160deg, rgba(0, 62, 170, .74), rgba(0, 54, 156, .78));
+  --tile-text: #fff;
+  --tile-sub: #e0edff;
+  --tile-warn: #ffe6e3;
+  --tile-tick: rgba(255, 255, 255, .20);
+
+  /* Control Center */
+  --cc-bg: linear-gradient(150deg, rgba(0, 46, 150, .40), rgba(0, 40, 140, .46) 55%, rgba(0, 46, 150, .42));   /* deep blue glass: white text 4.5:1+ over the bright wave */
+  --cc-text: #fff;
+  --cc-text-2: rgba(255, 255, 255, .9);
+  --cc-blur: blur(16px) saturate(190%) brightness(.68);   /* dims a bright backdrop (the crest, the pale sky) under white text */
+  --cc-label-bg: var(--cc-bg);          /* labels sit on bare wallpaper: a small glass pill keeps them 4.5:1 over the crest (both modes) */
+  --cc-label-filter: var(--cc-blur);
+  --cc-off: rgba(255, 255, 255, .20);
+  --cc-on: rgba(255, 255, 255, .97);
+  --cc-on-fg: #1a78f2;
+  --cc-track: rgba(255, 255, 255, .30);
+  --cc-shadow: 0 8px 24px rgba(8, 40, 120, .16);
+
+  /* Dock */
+  --dock-bg: rgba(255, 255, 255, .26);
+  --dock-sep: rgba(0, 0, 0, .16);
+  --dock-dot: rgba(0, 0, 0, .55);
+  --badge-bg: rgba(255, 255, 255, .94);
+  --badge-text: rgba(0, 0, 0, .78);
+  --badge-rim: rgba(0, 0, 0, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-1: rgba(255, 255, 255, .92);
+    --text-2: rgba(255, 255, 255, .64);
+    --text-3: rgba(255, 255, 255, .34);
+    --sep: rgba(255, 255, 255, .12);
+    --hover: rgba(255, 255, 255, .06);
+    --sel: rgba(255, 255, 255, .10);
+
+    /* system blue in dark too, like refs 12-14 */
+    --accent: #0a84ff;
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --red-text: color-mix(in srgb, var(--red) 66%, #fff);
+    --accent-text: color-mix(in srgb, var(--accent) 75%, #fff);
+
+    --c-all: #98989d;
+    --c-today: #0a84ff;
+    --c-upcoming: #ff453a;
+    --c-done: #98989d;
+    --c-uni: #8e8cff;
+    --c-personal: #ff9f0a;
+    --c-projects: #40c8e0;
+    --c-societies: #ff4f74;
+    --c-shopping: #30d158;
+
+    --wp-base: #0a0f22;
+    --wp-sky-1: #070b1a;
+    --wp-sky-2: #10162e;
+    --wp-sky-3: #24203c;
+    --wp-sky-4: #161b34;
+    --wp-fold: #1a3c92;
+    --wp-fold-hi: #2f4f9c;
+    --wp-lip-1: #5d79b8;
+    --wp-lip-2: #23448f;
+    --wp-body-1: #12307f;
+    --wp-body-2: #0a1d5a;
+    --wp-body-3: #163a8c;
+    --wp-core: #050f3a;
+    --wp-glow: #22479a;
+    --wp-haze: #26294a;
+    --wp-crest: #b9ccff;
+    --wp-streak: #4a6fc0;
+
+    --sheet-bg: rgba(22, 24, 34, .46);
+    --sheet-side: rgba(36, 38, 48, .50);
+    --sheet-shadow: 0 24px 60px rgba(0, 0, 0, .45), 0 2px 10px rgba(0, 0, 0, .25);
+    --rim-a: rgba(255, 255, 255, .34);
+    --rim-b: rgba(255, 255, 255, .08);
+    --field-bg: rgba(255, 255, 255, .08);
+    --round-bg: rgba(255, 255, 255, .10);
+    --tick-ring: rgba(255, 255, 255, .42);
+    --badge-ring: rgba(30, 32, 42, .95);
+
+    --tile-bg: linear-gradient(160deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .07));
+    --tile-text: rgba(255, 255, 255, .94);
+    --tile-sub: #8cc8ff;                 /* blue, not amber: one accent in both modes */
+    --tile-warn: #ffaaa4;
+    --tile-tick: rgba(255, 255, 255, .10);
+
+    --cc-bg: linear-gradient(150deg, rgba(40, 44, 62, .42), rgba(22, 24, 36, .30) 55%, rgba(34, 38, 56, .38));
+    --cc-text: rgba(255, 255, 255, .94);
+    --cc-text-2: rgba(255, 255, 255, .72);
+    --cc-blur: blur(16px) saturate(190%);
+    --cc-off: rgba(255, 255, 255, .11);
+    --cc-on: rgba(255, 255, 255, .92);
+    --cc-on-fg: #0a84ff;                 /* on toggles: white disc, system blue glyph (was orange) */
+    --cc-track: rgba(255, 255, 255, .16);
+    --cc-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+
+    --dock-bg: rgba(26, 28, 40, .40);
+    --dock-sep: rgba(255, 255, 255, .16);
+    --dock-dot: rgba(255, 255, 255, .6);
+    --badge-bg: rgba(64, 66, 80, .96);
+    --badge-text: rgba(255, 255, 255, .92);
+    --badge-rim: rgba(255, 255, 255, .22);
+  }
+}
+:root { --accent-fill: color-mix(in srgb, var(--accent) 86%, #000); --star: color-mix(in srgb, var(--orange) 70%, #000); }
+@media (prefers-color-scheme: dark) {
+  :root { --accent-fill: color-mix(in srgb, var(--accent) 80%, #000); --star: var(--orange); }
+}
+
+/* ---------- base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--text-1);
+  background: var(--wp-base);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: default; -webkit-tap-highlight-color: transparent; }
+a { -webkit-tap-highlight-color: transparent; }
+h1, h2, p { margin: 0; }
+svg.ic { width: 1em; height: 1em; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* shared Liquid Glass rim: bright top-left and bottom-right, dim sides */
+.rim { position: relative; }
+.rim::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--rim-a) 0%, var(--rim-b) 28%, rgba(255,255,255,0) 50%, var(--rim-b) 72%, var(--rim-a) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ---------- wallpaper ---------- */
+.wallpaper { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.wallpaper svg { width: 100%; height: 100%; display: block; }
+.wp-s1 { stop-color: var(--wp-sky-1); }
+.wp-s2 { stop-color: var(--wp-sky-2); }
+.wp-s3 { stop-color: var(--wp-sky-3); }
+.wp-s4 { stop-color: var(--wp-sky-4); }
+.wp-b0 { stop-color: var(--wp-lip-1); }
+.wp-b1 { stop-color: var(--wp-lip-2); }
+.wp-b2 { stop-color: var(--wp-body-1); }
+.wp-b3 { stop-color: var(--wp-body-2); }
+.wp-b4 { stop-color: var(--wp-body-3); }
+.wp-fold { fill: var(--wp-fold); }
+.wp-fold-hi { fill: var(--wp-fold-hi); }
+.wp-core { fill: var(--wp-core); }
+.wp-glow { fill: var(--wp-glow); }
+.wp-haze { fill: var(--wp-haze); }
+.wp-crest { stroke: var(--wp-crest); fill: none; }
+.wp-streak { stroke: var(--wp-streak); fill: none; }
+.wp-lip { stroke: var(--wp-lip-1); fill: none; }
+/* Static glass (glass, in the script): the still glass gets its blurred backdrop as a baked image (--baked) */
+.wallpaper__raster { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 50%; }
+.wallpaper.is-raster svg { display: none; }
+.sheet:is(.is-baking, .is-baked) { background: linear-gradient(var(--sheet-bg), var(--sheet-bg)), var(--baked) 0 0 / 100% 100% no-repeat; }
+.cc-mod:is(.is-baking, .is-baked) { background: var(--cc-bg), var(--baked) 0 0 / 100% 100% no-repeat; }
+:is(.sheet, .cc-mod).is-baked { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* ---------- desktop layout ---------- */
+.desktop {
+  position: relative; z-index: 1; height: 100vh; height: 100dvh;
+  --top-gap: 28px;
+  --cc-w: 288px;
+  --cc-right: 12px;
+  --stage: calc(100vw - var(--cc-w) - var(--cc-right));   /* width left of Control Center */
+  --edge: clamp(32px, 5vw, 72px);                          /* wallpaper either side of the sheet */
+}
+
+/* ---------- the sheet: the ratings, grouped by show ---------- */
+.sheet {
+  position: absolute;
+  top: var(--top-gap);
+  bottom: var(--top-gap);
+  left: calc(var(--stage) / 2);
+  transform: translateX(-50%);
+  width: min(760px, calc(var(--stage) - 2 * var(--edge)));
+  display: flex; flex-direction: column;
+  border-radius: 28px;
+  background: var(--sheet-bg);
+  -webkit-backdrop-filter: blur(34px) saturate(165%);
+  backdrop-filter: blur(34px) saturate(165%);
+  box-shadow: var(--sheet-shadow), inset 0 0 0 .5px rgba(255,255,255,.18);
+}
+/* on the desktop the head and the shows sit on the sheet's glass; on a phone each is its own glass card */
+.sheet .card.rim::after { display: none; }
+.head { padding: 22px 26px 10px; }
+.head h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 32px; }
+.head p { margin-top: 3px; font-size: 13px; line-height: 17px; color: var(--text-2); text-wrap: pretty; }
+.head p a { color: var(--accent-text); font-weight: 600; }
+.list {
+  flex: 1; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 0 16px 20px;
+  border-radius: 0 0 28px 28px;
+}
+
+.show { margin-top: 16px; }
+.show__head { display: flex; align-items: center; gap: 8px; padding: 0 10px 7px; font-size: 15px; font-weight: 700; line-height: 20px; }
+.show__head a { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: inherit; text-decoration: none; }
+.show__head a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.show__head a .ic { font-size: 13px; color: var(--text-2); }
+.show__head a:hover span { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.show__count { margin-left: auto; flex: none; font-size: 12px; font-weight: 500; color: var(--text-2); }
+
+.rows { list-style: none; margin: 0; padding: 0; border-radius: 14px; background: var(--round-bg); }
+.row { position: relative; display: flex; align-items: center; padding-right: 4px; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 72px; right: 0; border-top: .5px solid var(--sep); }
+.row__main {
+  flex: 1; min-width: 0;
+  display: grid; grid-template-columns: 50px minmax(0, 1fr) auto; align-items: center; column-gap: 10px;
+  padding: 10px 6px 10px 12px;
+  border-radius: 14px;
+  color: inherit; text-decoration: none;
+}
+.row__main:hover { background: var(--hover); }
+.row__ep { font-size: 12px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row__name { display: block; font-size: 14px; font-weight: 500; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row__meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12px; line-height: 16px; color: var(--text-2); }
+.stars { display: inline-flex; gap: 1px; color: var(--star); font-size: 11px; }
+.stars .ic { fill: currentColor; stroke: none; }
+.stars .ic.is-empty { fill: none; stroke: currentColor; stroke-width: 1.6; opacity: .55; }
+/* what to give it on Series Graph, which rates out of 10 */
+.row__sg {
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 3px 8px; border-radius: 999px;
+}
+.row.is-copied .row__name { color: var(--text-2); }
+.row.is-copied .row__sg { color: var(--text-2); background: var(--sel); }
+
+/* copied tick: a 22px ring in a 44px button */
+.tick { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 50%; }
+.tick__ring { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 1.5px var(--tick-ring); color: transparent; font-size: 14px; transition: transform 140ms var(--ease-snap); }
+.tick:active .tick__ring { transform: scale(.9); }
+.tick__ring .ic { stroke-width: 2.6; }
+.tick[aria-pressed="true"] .tick__ring { background: var(--accent-fill); box-shadow: none; color: #fff; }
+
+.empty { margin: 40px auto 0; max-width: 380px; text-align: center; color: var(--text-2); font-size: 13px; line-height: 18px; text-wrap: pretty; }
+.empty strong { display: block; margin-bottom: 4px; color: var(--text-1); font-size: 15px; }
+
+/* ---------- Control Center: what's left to copy, the filter, this week's viewing ---------- */
+.cc {
+  position: absolute;
+  top: var(--top-gap);
+  right: var(--cc-right);
+  width: var(--cc-w);
+  --cell: 63px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  color: var(--cc-text);
+}
+.cc-mod {
+  background: var(--cc-bg);
+  -webkit-backdrop-filter: var(--cc-blur);
+  backdrop-filter: var(--cc-blur);
+  box-shadow: var(--cc-shadow), inset 0 0 16px rgba(255,255,255,.14);
+  transition: transform 160ms var(--ease-snap);
+}
+:is(button, a).cc-mod:active { transform: scale(.97); }
+.cc-mod.rim::after { padding: 1.2px; background: linear-gradient(135deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.35) 26%, rgba(255,255,255,.10) 50%, rgba(255,255,255,.35) 74%, rgba(255,255,255,.9) 100%); }
+@media (prefers-color-scheme: dark) {
+  .cc-mod.rim::after { background: linear-gradient(135deg, rgba(255,255,255,.45) 0%, rgba(255,255,255,.12) 26%, rgba(255,255,255,.04) 50%, rgba(255,255,255,.12) 74%, rgba(255,255,255,.4) 100%); }
+}
+
+/* two stat tiles */
+.cc-stat {
+  grid-column: span 2;
+  height: calc(var(--cell) + 34px);
+  border-radius: 24px;
+  padding: 12px 14px;
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.cc-stat__icon { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--cc-off); font-size: 16px; box-shadow: inset 0 .5px 0 rgba(255,255,255,.35); }
+.cc-stat__num { font-size: 24px; font-weight: 700; line-height: 28px; font-variant-numeric: tabular-nums; }
+.cc-stat__label { font-size: 12px; font-weight: 600; color: var(--cc-text-2); }
+
+/* pill toggles (Hide Copied) and the To Do link */
+.cc-pill {
+  grid-column: span 2;
+  height: var(--cell);
+  border-radius: 999px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 10px 0 9px;
+  text-align: left;
+  text-decoration: none; color: inherit;
+}
+.cc-pill__icon {
+  width: 42px; height: 42px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--cc-off);
+  color: var(--cc-text);
+  font-size: 20px;
+  box-shadow: inset 0 .5px 0 rgba(255,255,255,.35);
+}
+.cc-pill.is-on .cc-pill__icon { background: var(--cc-on); color: var(--cc-on-fg); }
+.cc-pill__title { min-width: 0; text-wrap: balance; font-size: 13px; font-weight: 600; line-height: 16px; }
+
+/* this week on the TV: minutes per app */
+.cc-week { grid-column: 1 / -1; border-radius: 24px; padding: 14px 16px 16px; }
+.cc-week__head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.cc-week__title { font-size: 13px; font-weight: 600; }
+.cc-week__total { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--cc-text-2); font-variant-numeric: tabular-nums; }
+.cc-week ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+.cc-week li { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; row-gap: 4px; font-size: 12px; line-height: 15px; }
+.cc-week__app { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.cc-week__min { color: var(--cc-text-2); font-variant-numeric: tabular-nums; }
+.cc-week__bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--cc-track); overflow: hidden; }
+.cc-week__bar i { display: block; height: 100%; border-radius: 3px; background: var(--cc-on); transform-origin: left; }
+.cc-week__none { font-size: 12px; line-height: 16px; color: var(--cc-text-2); }
+
+/* ---------- focus ---------- */
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 2px; }
+.cc :focus-visible { outline-color: var(--cc-on); }
+
+/* ---------- narrow or short windows: a readable column of glass cards ---------- */
+@media (max-width: 1023px), (max-height: 619px) {
+  body { overflow-x: hidden; overflow-y: auto; }
+  .desktop { height: auto; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 20px 16px 32px; }
+  .sheet, .cc { position: static; transform: none; width: 100%; max-width: 760px; }
+  .cc { order: -1; }
+  /* the sheet steps back: one tall glass panel turns grey once the wave scrolls away, separate cards stay glass */
+  .sheet { display: flex; flex-direction: column; gap: 14px; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; border-radius: 0; }
+  .sheet.rim::after { display: none; }
+  .sheet .card.rim::after { display: block; }
+  .card {
+    border-radius: 22px;
+    background: var(--sheet-bg);
+    -webkit-backdrop-filter: blur(34px) saturate(165%);
+    backdrop-filter: blur(34px) saturate(165%);
+    box-shadow: var(--sheet-shadow), inset 0 0 0 .5px rgba(255,255,255,.18);
+  }
+  .head { padding: 18px 18px 16px; }
+  .list { overflow: visible; padding: 0; border-radius: 0; display: flex; flex-direction: column; gap: 14px; }
+  .show { margin: 0; padding: 14px 8px 8px; }
+  .empty { margin: 0; max-width: none; padding: 28px 20px; }
+}
+@media (max-width: 640px) {
+  .cc { --cell: calc((100vw - 32px - 36px) / 4); }
+  .row__main { grid-template-columns: 46px minmax(0, 1fr) auto; column-gap: 8px; padding-left: 10px; }
+  .row + .row::before { left: 64px; }
+}
+/* phones and touch: 44px hit areas */
+@media (max-width: 640px), (pointer: coarse) {
+  .show__head a { min-height: 44px; margin: -12px 0; }
+  .head p { font-size: 14px; line-height: 19px; }
+}
+
+/* ---------- accessibility fallbacks ---------- */
+@media (prefers-reduced-transparency: reduce) {
+  .sheet, .card, .cc-mod { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .sheet, .card { background: rgba(246, 246, 248, .97); }
+  .cc-mod { background: rgb(30, 74, 168); }
+}
+@media (prefers-reduced-transparency: reduce) and (max-width: 1023px), (prefers-reduced-transparency: reduce) and (max-height: 619px) {
+  .sheet { background: none; }
+}
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  .sheet, .card { background: rgba(40, 40, 44, .97); }
+  .cc-mod { background: rgba(48, 48, 56, .96); }
+}
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) and (max-width: 1023px), (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) and (max-height: 619px) {
+  .sheet { background: none; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sheet, .card { background: rgba(246, 246, 248, .96); }
+  .cc-mod { background: rgb(30, 74, 168); }
+  @media (prefers-color-scheme: dark) { .sheet, .card { background: rgba(40, 40, 44, .97); } .cc-mod { background: rgba(48, 48, 56, .96); } }
+  @media (max-width: 1023px), (max-height: 619px) { .sheet { background: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 150ms !important; transition-property: opacity !important; }
+}
+</style>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.8l2.7 5.9 6.4.7-4.8 4.3 1.3 6.4L12 16.9l-5.6 3.2 1.3-6.4-4.8-4.3 6.4-.7z"></path></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"></path></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"></rect><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"></path></symbol>
+  <symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12.5" rx="2.5"></rect><path d="M8.5 20h7"></path></symbol>
+  <symbol id="i-hide" viewBox="0 0 24 24"><path d="M3.5 12s3-6 8.5-6 8.5 6 8.5 6-3 6-8.5 6-8.5-6-8.5-6z"></path><circle cx="12" cy="12" r="2.6"></circle><path d="M4.5 4.5l15 15"></path></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"></path></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 7h8v8M17 7L7.5 16.5"></path></symbol>
+</svg>
+
+<div class="wallpaper" aria-hidden="true">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="wpSky" x1="0" y1="0" x2=".2" y2="1">
+        <stop offset="0" class="wp-s1"></stop>
+        <stop offset=".28" class="wp-s2"></stop>
+        <stop offset=".50" class="wp-s3"></stop>
+        <stop offset="1" class="wp-s4"></stop>
+      </linearGradient>
+      <linearGradient id="wpBody" x1=".18" y1=".05" x2=".72" y2="1">
+        <stop offset="0" class="wp-b0"></stop>
+        <stop offset=".12" class="wp-b1"></stop>
+        <stop offset=".30" class="wp-b2"></stop>
+        <stop offset=".62" class="wp-b3"></stop>
+        <stop offset="1" class="wp-b4"></stop>
+      </linearGradient>
+      <filter id="blurXL" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="60"></feGaussianBlur></filter>
+      <filter id="blurL" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="34"></feGaussianBlur></filter>
+      <filter id="blurM" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"></feGaussianBlur></filter>
+      <filter id="blurS" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"></feGaussianBlur></filter>
+      <filter id="blurXS" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.1"></feGaussianBlur></filter>
+      <clipPath id="wpWaveClip"><path d="M-40 790 C 230 610, 520 330, 800 175 C 960 88, 1080 34, 1220 -20 L 1500 -20 L 1500 940 L -40 940 Z"></path></clipPath>
+    </defs>
+
+    <!-- sky: blue-grey top, warm beige middle -->
+    <rect width="1440" height="900" fill="url(#wpSky)"></rect>
+    <!-- the blue fold on the left, above the main crest -->
+    <path class="wp-fold" filter="url(#blurL)" opacity=".9" d="M-80 530 C 90 490, 300 510, 480 610 C 360 680, 160 700, -80 740 Z"></path>
+    <path class="wp-fold-hi" filter="url(#blurM)" opacity=".7" d="M-60 512 C 120 478, 270 492, 420 562 C 300 576, 120 578, -60 598 Z"></path>
+
+    <!-- the main wave body -->
+    <g clip-path="url(#wpWaveClip)">
+      <rect width="1440" height="900" fill="url(#wpBody)"></rect>
+      <ellipse class="wp-core" filter="url(#blurXL)" opacity=".75" cx="1040" cy="560" rx="420" ry="150" transform="rotate(-26 1040 560)"></ellipse>
+      <ellipse class="wp-glow" filter="url(#blurXL)" opacity=".75" cx="720" cy="800" rx="420" ry="140" transform="rotate(-14 720 800)"></ellipse>
+      <ellipse class="wp-haze" filter="url(#blurXL)" opacity=".9" cx="1420" cy="860" rx="300" ry="230"></ellipse>
+      <!-- ribbons inside the curl -->
+      <path class="wp-streak" filter="url(#blurM)" opacity=".55" stroke-width="46" d="M360 760 C 600 560, 860 360, 1260 250"></path>
+      <path class="wp-streak" filter="url(#blurS)" opacity=".45" stroke-width="10" d="M230 820 C 480 620, 760 420, 1140 300 C 1260 262, 1360 250, 1480 250"></path>
+      <path class="wp-streak" filter="url(#blurS)" opacity=".35" stroke-width="7" d="M520 820 C 760 640, 1000 520, 1480 430"></path>
+      <!-- the translucent lip just under the crest -->
+      <path class="wp-lip" filter="url(#blurM)" opacity=".6" stroke-width="44" d="M-40 818 C 230 638, 520 358, 800 203 C 960 116, 1080 62, 1240 8"></path>
+      <path class="wp-crest" filter="url(#blurS)" opacity=".42" stroke-width="4" d="M-30 822 C 240 642, 530 362, 810 206 C 970 118, 1090 64, 1240 11"></path>
+      <path class="wp-crest" filter="url(#blurS)" opacity=".28" stroke-width="3" d="M-20 860 C 250 676, 545 392, 822 236 C 982 146, 1100 92, 1250 40"></path>
+    </g>
+    <!-- the bright specular crest line -->
+    <path class="wp-crest" filter="url(#blurM)" opacity=".55" stroke-width="16" d="M-40 790 C 230 610, 520 330, 800 175 C 960 88, 1080 34, 1220 -20"></path>
+    <path class="wp-crest" filter="url(#blurXS)" opacity=".95" stroke-width="2.6" d="M-40 790 C 230 610, 520 330, 800 175 C 960 88, 1080 34, 1220 -20"></path>
+  </svg>
+</div>
+<main class="desktop">
+  <section class="sheet rim" aria-labelledby="title">
+    <header class="head card rim">
+      <h1 id="title">TV Ratings</h1>
+      <p id="status" role="status" aria-live="polite">Loading…</p>
+    </header>
+    <div class="list" id="list"></div>
+  </section>
+
+  <aside class="cc" aria-label="Summary">
+    <div class="cc-mod rim cc-stat">
+      <span class="cc-stat__icon" aria-hidden="true"><svg class="ic"><use href="#i-copy"></use></svg></span>
+      <div><div class="cc-stat__num" id="toCopy">–</div><div class="cc-stat__label">To Copy</div></div>
+    </div>
+    <div class="cc-mod rim cc-stat">
+      <span class="cc-stat__icon" aria-hidden="true"><svg class="ic"><use href="#i-star"></use></svg></span>
+      <div><div class="cc-stat__num" id="rated">–</div><div class="cc-stat__label">Episodes Rated</div></div>
+    </div>
+
+    <button class="cc-mod rim cc-pill" id="hideCopied" aria-pressed="false">
+      <span class="cc-pill__icon" aria-hidden="true"><svg class="ic"><use href="#i-hide"></use></svg></span>
+      <span class="cc-pill__title">Hide Copied</span>
+    </button>
+    <a class="cc-mod rim cc-pill" href="./" aria-label="Back to To Do">
+      <span class="cc-pill__icon" aria-hidden="true"><svg class="ic"><use href="#i-back"></use></svg></span>
+      <span class="cc-pill__title">To Do</span>
+    </a>
+
+    <section class="cc-mod rim cc-week" aria-labelledby="weekTitle">
+      <div class="cc-week__head"><h2 class="cc-week__title" id="weekTitle">TV This Week</h2><span class="cc-week__total" id="weekTotal"></span></div>
+      <div id="week"><p class="cc-week__none">Loading…</p></div>
+    </section>
+  </aside>
+</main>
+
+<script>
+/* Static glass. The wallpaper is drawn once into a canvas (no live SVG blur), and glass that sits still on it
+   (the task sheet, Control Center's labels and Edit Controls) gets its blurred backdrop baked into an image
+   at the same blur, so nothing re-blurs while the list scrolls. It looks the same; on a resize, a theme change,
+   the stacked layout or reduced transparency the live backdrop-filter is used instead. */
+const glass = (() => {
+  const wp = document.querySelector('.wallpaper'), svg = wp?.querySelector('svg');
+  if (!svg || !window.CanvasRenderingContext2D) return { refresh() {} };
+  const desk = matchMedia('(min-width: 1024px) and (min-height: 620px)');
+  const dark = matchMedia('(prefers-color-scheme: dark)');
+  const solid = matchMedia('(prefers-reduced-transparency: reduce)');
+  const canFilter = 'filter' in CanvasRenderingContext2D.prototype;
+  const SEL = '.sheet, .cc-mod';
+  const rasters = {};                 // 'light' | 'dark' -> canvas, kept for the session
+  let shown = null, job = 0, timer = 0;
+  const urls = new Map();
+
+  // the wallpaper SVG with its CSS colours written in, so it draws the same outside the page
+  function svgText() {
+    const copy = svg.cloneNode(true), src = svg.querySelectorAll('*'), dst = copy.querySelectorAll('*');
+    src.forEach((el, i) => {
+      if (!el.getAttribute('class')) return;
+      const cs = getComputedStyle(el), d = dst[i];
+      if (el.tagName === 'stop') d.setAttribute('stop-color', cs.stopColor);
+      else { d.setAttribute('fill', cs.fill); d.setAttribute('stroke', cs.stroke); }
+      d.removeAttribute('class');
+    });
+    return copy;
+  }
+  // big enough for this screen at this pixel density, so it is only ever scaled down (cover, centred = xMidYMid slice)
+  function rasterScale() {
+    const dpr = Math.min(devicePixelRatio || 1, 3);
+    const s = Math.max(screen.width, innerWidth) / 1440, t = Math.max(screen.height, innerHeight) / 900;
+    return Math.min(Math.max(s, t) * dpr, 4096 / 1440);
+  }
+  async function raster(scheme) {
+    const k = rasterScale();
+    if (rasters[scheme] && rasters[scheme]._k >= k - 0.01) return rasters[scheme];
+    const copy = svgText(), W = Math.round(1440 * k), H = Math.round(900 * k);
+    copy.setAttribute('width', W); copy.setAttribute('height', H);
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(copy)], { type: 'image/svg+xml' }));
+    try {
+      const img = new Image(); img.src = url; await img.decode();
+      const c = document.createElement('canvas'); c.width = W; c.height = H; c._k = k;
+      c.className = 'wallpaper__raster'; c.setAttribute('aria-hidden', 'true');
+      c.getContext('2d').drawImage(img, 0, 0, W, H);
+      return (rasters[scheme] = c);
+    } finally { URL.revokeObjectURL(url); }
+  }
+  // where a CSS pixel of the viewport lands on the raster (object-fit: cover, centred)
+  function mapper(c) {
+    const s = Math.max(innerWidth / 1440, innerHeight / 900), ox = (innerWidth - 1440 * s) / 2, oy = (innerHeight - 900 * s) / 2, r = c._k / s;
+    return (x, y) => [(x - ox) * r, (y - oy) * r, r];
+  }
+  // backdrop-filter mirrors the backdrop at the element's edge; do the same so the edges match
+  function bakeOne(el, c, f) {
+    const b = el.getBoundingClientRect(), w = Math.round(b.width), h = Math.round(b.height);
+    if (!w || !h) return null;
+    const blur = +(/blur\(([\d.]+)px\)/.exec(f)?.[1] || 0), P = Math.ceil(blur * 3) + 2;
+    const map = mapper(c), [sx, sy, r] = map(b.left, b.top);
+    const src = document.createElement('canvas'); src.width = w + 2 * P; src.height = h + 2 * P;
+    const g = src.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    const piece = (dx, dy, fx, fy) => { g.save(); g.translate(P + dx, P + dy); g.scale(fx, fy); g.drawImage(c, sx, sy, w * r, h * r, 0, 0, w, h); g.restore(); };
+    piece(0, 0, 1, 1);
+    piece(0, 0, -1, 1); piece(2 * w, 0, -1, 1); piece(0, 0, 1, -1); piece(0, 2 * h, 1, -1);
+    piece(0, 0, -1, -1); piece(2 * w, 0, -1, -1); piece(0, 2 * h, -1, -1); piece(2 * w, 2 * h, -1, -1);
+    const out = document.createElement('canvas'); out.width = w; out.height = h;
+    const o = out.getContext('2d'); o.filter = f; o.drawImage(src, -P, -P);
+    return out;
+  }
+  const on = () => desk.matches && !solid.matches && canFilter;
+  // back to the live blur: always correct straight away, so dropping a bake never leaves a gap
+  function clear() { document.querySelectorAll('.is-baking, .is-baked').forEach(el => el.classList.remove('is-baking', 'is-baked')); }
+  async function refresh() {
+    const my = ++job, scheme = dark.matches ? 'dark' : 'light';
+    clear();
+    let c;
+    try { c = await raster(scheme); } catch { c = null; }
+    if (my !== job) return;
+    if (c && shown !== c) { shown?.remove(); wp.append(c); shown = c; }
+    wp.classList.toggle('is-raster', !!c);
+    if (!c || !on()) return;
+    await new Promise(requestAnimationFrame);
+    if (my !== job) return;
+    const els = [...document.querySelectorAll(SEL)], jobs = [];
+    for (const el of els) {
+      const f = getComputedStyle(el).backdropFilter;
+      if (!f || f === 'none') continue;
+      try {   // a browser that taints the canvas just keeps the live blur
+        const out = bakeOne(el, c, f);
+        if (out) jobs.push(new Promise(res => out.toBlob(bl => res([el, bl]))));
+      } catch { return; }
+    }
+    // decode every image before the page sees it, so the CSS background is ready on its first frame
+    const done = await Promise.all((await Promise.all(jobs)).map(async ([el, bl]) => {
+      if (!bl) return null;
+      const u = URL.createObjectURL(bl), img = new Image();
+      img.src = u;
+      try { await img.decode(); } catch { URL.revokeObjectURL(u); return null; }
+      return [el, u, img];
+    }));
+    const ready = done.filter(Boolean);
+    const drop = () => ready.forEach(([, u]) => URL.revokeObjectURL(u));
+    if (my !== job) return drop();
+    for (const [el, u, img] of ready) {
+      if (urls.has(el)) URL.revokeObjectURL(urls.get(el).u);
+      urls.set(el, { u, img });               // the decoded image stays referenced while it's on screen
+      el.style.setProperty('--baked', `url("${u}")`);
+      el.classList.add('is-baking');           // baked image over the live blur: same look either way
+    }
+    // let the baked layer paint (two frames), then switch the live blur off underneath it
+    await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
+    if (my !== job) return;
+    for (const [el] of ready) if (el.classList.contains('is-baking')) el.classList.add('is-baked');
+  }
+  const soon = () => { clear(); clearTimeout(timer); timer = setTimeout(refresh, 180); };
+  addEventListener('resize', soon);
+  for (const m of [desk, solid]) m.addEventListener('change', soon);
+  // light <-> dark: back to the live SVG at once (its colours follow the theme), then draw the new one
+  dark.addEventListener('change', () => { job++; wp.classList.remove('is-raster'); shown?.remove(); shown = null; soon(); });
+  // a label that changes size would stretch its baked image: re-bake (the live blur covers the gap)
+  const sizes = new WeakMap();
+  const ro = new ResizeObserver(list => {
+    let moved = false;
+    for (const e of list) { const k = Math.round(e.contentRect.width) + 'x' + Math.round(e.contentRect.height); if (sizes.has(e.target) && sizes.get(e.target) !== k) moved = true; sizes.set(e.target, k); }
+    if (moved) soon();
+  });
+  document.querySelectorAll(SEL).forEach(el => ro.observe(el));
+  return { refresh, soon };
+})();
+(document.fonts?.ready || Promise.resolve()).then(() => glass.refresh());
+</script>
+<script>
+/* TV Ratings. Free My TV on the LG and Samsung asks, after 20 minutes in a streaming app, which episode was on and
+   how many stars it gets, and saves that to Supabase (public.tv_rating; app time goes to public.tv_watch). This page
+   lists those ratings, each linked to the episode on Series Graph, which has no API: open it, rate it there, tick it
+   here. It uses the To Do app's sign-in (same site, same saved session), so sign in there once under Edit Lists → Sync.
+   The ticks stay in this browser (localStorage), not in the database. */
+const SUPABASE_URL = 'https://ajgymyqgthxaiqoniwbe.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_5JI6nVkFUSISlmX1dntU8Q_QTJUGxR5';
+const SESSION_KEY = 'todo.session';
+const COPIED_KEY = 'todo.tvCopied', HIDE_KEY = 'todo.tvHideCopied';
+const HINT = 'Open an episode to rate it on Series Graph (out of 10: the blue number), then tick it here.';
+
+let ratings = [], watches = null, problem = '';
+const copied = new Set(load(COPIED_KEY, []));
+let hideCopied = load(HIDE_KEY, false) === true;
+
+function load(key, fallback) { try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; } catch { return fallback; } }
+function keep(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} }
+
+// MARK: - Supabase, signed in as the To Do app is
+
+function readSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
+class SignIn extends Error {}
+let refreshing = null;
+async function accessToken() {
+  const s = readSession();   // the To Do app may have refreshed it since: always the newest
+  if (!s) throw new SignIn();
+  if (s.expires_at - Date.now() > 60e3) return s.access_token;
+  if (!refreshing) refreshing = (async () => {
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {method: 'POST',
+      headers: {apikey: SUPABASE_KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({refresh_token: s.refresh_token})});
+    const d = await r.json().catch(() => null);
+    if (!r.ok) {
+      if (r.status === 400 || r.status === 401) { try { localStorage.removeItem(SESSION_KEY); } catch {} throw new SignIn(); }
+      throw new Error('net');
+    }
+    const next = {access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Date.now() + d.expires_in * 1000,
+                  email: d.user.email, id: d.user.id};
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(next)); } catch {}   // shared with the To Do app
+    return next.access_token;
+  })().finally(() => { refreshing = null; });
+  return refreshing;
+}
+async function api(path) {
+  const r = await fetch(SUPABASE_URL + path, {headers: {apikey: SUPABASE_KEY, Authorization: 'Bearer ' + await accessToken()}});
+  const data = await r.json().catch(() => null);
+  if (r.status === 401) throw new SignIn();
+  if (!r.ok) throw new Error((data && data.message) || 'net');
+  return data;
+}
+
+// Monday 00:00 this week, local time
+function weekStart() {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+  return d;
+}
+
+let loading = false;
+async function refresh() {
+  if (loading || document.hidden) return;
+  loading = true;
+  try {
+    const [r, w] = await Promise.all([
+      api('/rest/v1/tv_rating?select=id,tmdb_id,show_name,season,episode,episode_name,stars,rated_at&order=rated_at.desc&limit=2000'),
+      api('/rest/v1/tv_watch?select=app_id,app_title,minutes&started_at=gte.' + encodeURIComponent(weekStart().toISOString()) + '&limit=5000'),
+    ]);
+    ratings = r || []; watches = w || [];
+    problem = '';
+  } catch (e) {
+    problem = e instanceof SignIn ? 'signin' : navigator.onLine ? 'Couldn\'t load the ratings. Trying again soon…' : 'Offline: showing what was loaded last.';
+  }
+  loading = false;
+  render();
+}
+document.addEventListener('visibilitychange', refresh);
+addEventListener('online', refresh);
+setInterval(refresh, 60e3);
+
+// MARK: - The list
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const slug = s => String(s).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+// Series Graph addresses shows by TMDB id (the name after it is only for show), episodes as /episode/S1E1
+const showUrl = r => `https://seriesgraph.com/show/${r.tmdb_id}-${slug(r.show_name)}`;
+const episodeUrl = r => `${showUrl(r)}/episode/S${r.season}E${r.episode}`;
+
+const DAY = 864e5;
+function when(iso) {
+  const d = new Date(iso), today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.floor((today - new Date(d).setHours(0, 0, 0, 0)) / DAY);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return d.toLocaleDateString('en-GB', d.getFullYear() === today.getFullYear() ? {day: 'numeric', month: 'short'} : {day: 'numeric', month: 'short', year: 'numeric'});
+}
+const minutes = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+
+function stars(n) {
+  let out = '';
+  for (let i = 1; i <= 5; i++) out += `<svg class="ic${i > n ? ' is-empty' : ''}"><use href="#i-star"></use></svg>`;
+  return `<span class="stars" role="img" aria-label="${n} of 5 stars">${out}</span>`;
+}
+
+// One rating per episode, the newest (Series Graph keeps one per episode too), grouped by show, newest show first
+function shows() {
+  const seen = new Set(), groups = new Map();
+  for (const r of ratings) {
+    const ep = `${r.tmdb_id}:${r.season}:${r.episode}`;
+    if (seen.has(ep)) continue;
+    seen.add(ep);
+    if (!groups.has(r.tmdb_id)) groups.set(r.tmdb_id, []);
+    groups.get(r.tmdb_id).push(r);
+  }
+  return [...groups.values()];
+}
+
+function render() {
+  const list = document.getElementById('list'), groups = shows();
+  const all = groups.flat(), left = all.filter(r => !copied.has(r.id)).length;
+  document.getElementById('toCopy').textContent = problem === 'signin' ? '–' : left;
+  document.getElementById('rated').textContent = problem === 'signin' ? '–' : all.length;
+  const hider = document.getElementById('hideCopied');
+  hider.classList.toggle('is-on', hideCopied); hider.setAttribute('aria-pressed', hideCopied);
+
+  const status = document.getElementById('status');
+  if (problem === 'signin') status.innerHTML = 'Sign in to the To Do app first (Edit Lists → Sync), then come back. <a href="./">Open To Do</a>';
+  else status.textContent = problem || (all.length ? HINT : 'Nothing rated yet.');
+
+  if (problem === 'signin') { list.innerHTML = ''; renderWeek(); return; }
+  const visible = groups.map(g => hideCopied ? g.filter(r => !copied.has(r.id)) : g).filter(g => g.length);
+  if (!all.length && !problem) {
+    list.innerHTML = `<div class="empty card rim"><strong>No ratings yet</strong>After 20 minutes in a streaming app, Free My TV asks which episode was on and how many stars it gets. Those show up here.</div>`;
+  } else if (!visible.length && all.length) {
+    list.innerHTML = `<div class="empty card rim"><strong>All copied</strong>Every rating is on Series Graph. Turn off Hide Copied to see them again.</div>`;
+  } else {
+    list.innerHTML = visible.map(g => {
+      const s = g[0], done = groups.find(x => x[0].tmdb_id === s.tmdb_id).filter(r => !copied.has(r.id)).length;
+      return `<section class="show card rim">
+        <h2 class="show__head"><a href="${esc(showUrl(s))}" target="_blank" rel="noopener" aria-label="${esc(s.show_name)} on Series Graph"><span>${esc(s.show_name)}</span><svg class="ic" aria-hidden="true"><use href="#i-out"></use></svg></a>
+          <span class="show__count">${done ? `${done} to copy` : 'All copied'}</span></h2>
+        <ul class="rows">${g.map(row).join('')}</ul>
+      </section>`;
+    }).join('');
+  }
+  renderWeek();
+}
+
+function row(r) {
+  const on = copied.has(r.id), name = r.episode_name || `Episode ${r.episode}`;
+  return `<li class="row${on ? ' is-copied' : ''}">
+    <a class="row__main" href="${esc(episodeUrl(r))}" target="_blank" rel="noopener"
+       aria-label="${esc(`${r.show_name} season ${r.season} episode ${r.episode}, ${name}: ${r.stars} of 5 stars, ${r.stars * 2} out of 10 on Series Graph. Opens Series Graph.`)}">
+      <span class="row__ep" aria-hidden="true">S${r.season} · E${r.episode}</span>
+      <span aria-hidden="true"><span class="row__name">${esc(name)}</span>
+        <span class="row__meta">${stars(r.stars)}<span>${esc(when(r.rated_at))}</span></span></span>
+      <span class="row__sg" aria-hidden="true" title="Give it ${r.stars * 2} out of 10 on Series Graph">${r.stars * 2}/10</span>
+    </a>
+    <button class="tick" data-id="${r.id}" aria-pressed="${on}" aria-label="Copied to Series Graph: ${esc(name)}"><span class="tick__ring"><svg class="ic"><use href="#i-check"></use></svg></span></button>
+  </li>`;
+}
+
+function renderWeek() {
+  const box = document.getElementById('week'), total = document.getElementById('weekTotal');
+  if (problem === 'signin') { box.innerHTML = '<p class="cc-week__none">Sign in to see what was on.</p>'; total.textContent = ''; return; }
+  if (!watches) return;
+  const by = new Map();
+  for (const w of watches) {
+    const name = w.app_title || w.app_id;
+    by.set(name, (by.get(name) || 0) + (w.minutes || 0));
+  }
+  const apps = [...by].filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1]);
+  const sum = apps.reduce((n, [, m]) => n + m, 0);
+  total.textContent = sum ? minutes(sum) : '';
+  if (!apps.length) { box.innerHTML = '<p class="cc-week__none">Nothing watched yet this week.</p>'; return; }
+  const top = apps[0][1];
+  box.innerHTML = '<ul>' + apps.slice(0, 6).map(([name, m]) =>
+    `<li><span class="cc-week__app">${esc(name)}</span><span class="cc-week__min">${minutes(m)}</span>` +
+    `<span class="cc-week__bar" aria-hidden="true"><i style="transform: scaleX(${(m / top).toFixed(3)})"></i></span></li>`).join('') + '</ul>';
+}
+
+document.getElementById('list').addEventListener('click', e => {
+  const b = e.target.closest('.tick');
+  if (!b) return;
+  const id = +b.dataset.id;
+  if (copied.has(id)) copied.delete(id); else copied.add(id);
+  keep(COPIED_KEY, [...copied]);
+  render();
+  // the list was redrawn: keep the keyboard on the same tick
+  document.querySelector(`.tick[data-id="${id}"]`)?.focus({preventScroll: true});
+});
+document.getElementById('hideCopied').onclick = () => { hideCopied = !hideCopied; keep(HIDE_KEY, hideCopied); render(); };
+
+if (!readSession()) problem = 'signin';
+render();
+refresh();
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

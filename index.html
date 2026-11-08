@@ -694,6 +694,8 @@ svg.ic--fill { fill: currentColor; stroke: none; }
 .app-icon--photos { --c: #ff9500; }
 .photo-sun { fill: #ffcc00; }
 .photo-hill { fill: #34c759; }
+.app-icon--ratings { --c: #af52de; }
+.ratings-star { fill: #ff9500; }
 .todo-tick { fill: var(--c-today); }
 .todo-check { fill: none; stroke: #fff; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .todo-bar { fill: #c6cad3; }
@@ -2001,6 +2003,10 @@ html:has(.dt[open]) body { overflow: hidden; }
   <li class="dock__item">
     <a class="dock__btn" href="photos.html" aria-label="Photos on the TV"><span class="app-icon app-icon--photos"><svg viewBox="0 0 40 40" aria-hidden="true"><rect class="g-main" x="7" y="9" width="26" height="22" rx="4"/><circle class="photo-sun" cx="15" cy="16.5" r="2.6"/><path class="photo-hill" d="M8.5 28.5l7.6-7.2 5 4.6 4.6-4.2 5.8 5.4v1.4z"/></svg></span></a>
     <span class="dock__label">Photos</span>
+  </li>
+  <li class="dock__item">
+    <a class="dock__btn" href="tv.html" aria-label="TV Ratings"><span class="app-icon app-icon--ratings"><svg viewBox="0 0 40 40" aria-hidden="true"><rect class="g-main" x="7" y="9" width="26" height="18" rx="3"/><path class="ratings-star" d="M20 11.8l1.53 4.1 4.37.18-3.43 2.72 1.17 4.22L20 20.6l-3.64 2.42 1.17-4.22-3.43-2.72 4.37-.18z"/><path class="g-line" d="M14 31.5h12"/></svg></span></a>
+    <span class="dock__label">TV Ratings</span>
   </li>
   <li class="dock__sep" aria-hidden="true"></li>
   <li class="dock__item">

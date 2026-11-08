@@ -1,8 +1,8 @@
 // Offline support (same approach as the Planner). The page is fetched network-first so updates show up
 // straight away, with the cached copy as a fallback when there's no signal. Icons are cache-first.
 // Supabase requests are never cached: sync always talks to the live database.
-const CACHE = 'todo-v3';
-const SHELL = ['./', './index.html', './board.html', './photos.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
+const CACHE = 'todo-v4';
+const SHELL = ['./', './index.html', './board.html', './photos.html', './tv.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -16,8 +16,9 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET' || url.origin !== location.origin) return;
 
   if (req.mode === 'navigate') {
-    // three pages: the list, the Whiteboard and Photos, each cached under its own name
-    const page = url.pathname.endsWith('/board.html') ? './board.html' : url.pathname.endsWith('/photos.html') ? './photos.html' : './index.html';
+    // four pages: the list, the Whiteboard, Photos and TV Ratings, each cached under its own name
+    const page = url.pathname.endsWith('/board.html') ? './board.html' : url.pathname.endsWith('/photos.html') ? './photos.html'
+      : url.pathname.endsWith('/tv.html') ? './tv.html' : './index.html';
     e.respondWith(fetch(req).then(res => {
       const copy = res.clone();
       if (res.ok) caches.open(CACHE).then(c => c.put(page, copy));
