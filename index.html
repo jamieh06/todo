@@ -695,6 +695,7 @@ svg.ic--fill { fill: currentColor; stroke: none; }
 .photo-sun { fill: #ffcc00; }
 .photo-hill { fill: #34c759; }
 .app-icon--ratings { --c: #af52de; }
+.app-icon--home { --c: #2f6fe0; }   /* back to the Home desktop (jamieh06.github.io/home) */
 .ratings-star { fill: #ff9500; }
 .todo-tick { fill: var(--c-today); }
 .todo-check { fill: none; stroke: #fff; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
@@ -1992,6 +1993,11 @@ html:has(.dt[open]) body { overflow: hidden; }
 <!-- Dock: the app, one icon per list with its task count, then the bin (Clear Completed). Views live in the sidebar only. -->
 <ul class="dock" aria-label="Dock">
   <li class="dock__item">
+    <a class="dock__btn" href="../home/" aria-label="Home"><span class="app-icon app-icon--home"><svg viewBox="0 0 40 40" aria-hidden="true"><rect class="g-main" x="9.5" y="7" width="9.8" height="9.8" rx="2.6"/><rect class="g-main" x="20.7" y="7" width="9.8" height="9.8" rx="2.6"/><rect class="g-main" x="9.5" y="18.2" width="9.8" height="9.8" rx="2.6"/><rect class="g-sub" x="20.7" y="18.2" width="9.8" height="9.8" rx="2.6"/><rect class="g-main" x="11.5" y="31" width="17" height="2.6" rx="1.3"/></svg></span></a>
+    <span class="dock__label">Home</span>
+  </li>
+  <li class="dock__sep dock__sep--home" aria-hidden="true"></li>
+  <li class="dock__item">
     <button class="dock__btn" data-action="show-all" aria-label="To Do"><span class="app-icon app-icon--todo"><svg viewBox="0 0 40 40" aria-hidden="true"><circle class="todo-tick" cx="11" cy="11.5" r="4.4"/><path class="todo-check" d="M8.9 11.6l1.5 1.5 2.9-3.1"/><rect class="todo-bar" x="18.5" y="9.9" width="15" height="3.3" rx="1.65"/><circle class="todo-ring todo-ring--a" cx="11" cy="20.5" r="3.6"/><rect class="todo-bar" x="18.5" y="18.9" width="12.5" height="3.3" rx="1.65"/><circle class="todo-ring todo-ring--b" cx="11" cy="29.5" r="3.6"/><rect class="todo-bar" x="18.5" y="27.9" width="9.5" height="3.3" rx="1.65"/></svg></span></button>
     <span class="dock__label">To Do</span>
     <span class="dock__dot" aria-hidden="true"></span>
@@ -2713,7 +2719,7 @@ function renderDock() {
   const items = state.lists.map(l => ({ l, n: open.filter(t => t.listId === l.id).length }));
   const sig = JSON.stringify(items.map(({ l, n }) => [l.id, l.name, l.colour, n]));
   const dock = $1('.dock');
-  dock.style.setProperty('--dock-n', items.length + 4);   // + To Do, Whiteboard, Photos and the bin
+  dock.style.setProperty('--dock-n', items.length + 7);   // + Home, To Do, Whiteboard, Photos, TV Ratings and the bin, and room for the two separators
   const doneN = state.tasks.filter(t => t.done).length;
   dock.querySelector('[data-action="clear-completed"]').setAttribute('aria-label', `Clear Completed, ${doneN} ${doneN === 1 ? 'task' : 'tasks'}`);
   if (sig !== dockSig) {
@@ -2723,7 +2729,7 @@ function renderDock() {
     dockSig = sig;
     const focused = document.activeElement?.closest?.('.dock__btn[data-list]')?.dataset.list;
     dock.querySelectorAll('.dock__item[data-dock-list]').forEach(n => n.remove());
-    const sep = dock.querySelector('.dock__sep');
+    const sep = dock.querySelector('.dock__sep:not(.dock__sep--home)');   // lists go before the bin's separator
     for (const { l, n } of items) {
       const ic = h('span', { class: 'app-icon' });
       tint(ic, l.id, 'app-icon--');
@@ -4396,7 +4402,7 @@ function placeBanner() {
 function showError(title, body) { showBanner(title, body); bannerEl.classList.add('is-error'); }
 
 /* ---------- Dock FLIP: icons glide aside when a list arrives or leaves ---------- */
-function dockKey(li) { return li.dataset.dockList ? 'l:' + li.dataset.dockList : li.matches('.dock__sep') ? 'sep' : li.querySelector('[data-action]')?.dataset.action || li.querySelector('a[href]')?.getAttribute('href') || ''; }
+function dockKey(li) { return li.dataset.dockList ? 'l:' + li.dataset.dockList : li.matches('.dock__sep--home') ? 'sep:home' : li.matches('.dock__sep') ? 'sep' : li.querySelector('[data-action]')?.dataset.action || li.querySelector('a[href]')?.getAttribute('href') || ''; }
 function dockRects() { const m = new Map(); document.querySelectorAll('.dock > li').forEach(li => m.set(dockKey(li), li.getBoundingClientRect())); return m; }
 function dockFlip(before) {
   document.querySelectorAll('.dock > li').forEach(li => {
