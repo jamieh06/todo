@@ -27,6 +27,11 @@ self.addEventListener('fetch', e => {
     return;
   }
 
+  if (url.pathname.endsWith('/home/back.js')) {   // Home's shared script: network-first so edits reach this app, cached copy offline (not precached: that would fail the install if To Do ships before Home)
+    e.respondWith(fetch(req).then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); } return res; }).catch(() => caches.match(req)));
+    return;
+  }
+
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
     return res;
