@@ -761,7 +761,7 @@ async function refresh() {
   loading = true;
   try {
     const [r, w] = await Promise.all([
-      api('/rest/v1/tv_rating?select=id,tmdb_id,show_name,season,episode,episode_name,score,rated_at&order=rated_at.desc&limit=2000'),
+      api('/rest/v1/tv_rating?select=id,tmdb_id,show_name,season,episode,episode_name,score,rated_at&kind=eq.episode&order=rated_at.desc&limit=2000'),
       api('/rest/v1/tv_watch?select=app_id,app_title,minutes&started_at=gte.' + encodeURIComponent(weekStart().toISOString()) + '&limit=5000'),
     ]);
     ratings = r || []; watches = w || [];
